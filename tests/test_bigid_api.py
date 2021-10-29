@@ -22,7 +22,7 @@ def test_bigid_api_init_fails():
     with pytest.raises(KeyError):
         BigID({})
 
-    for (k, _v) in valid_api_params.items():
+    for k in valid_api_params.keys():
         bad_params = valid_api_params.copy()
         bad_params.pop(k)
         with pytest.raises(KeyError):
@@ -45,15 +45,16 @@ def test_bigid_api_response(bigid_api):
 
 
 def test_bigid_api_requests(bigid_api):
-    url = f"{bigid_api._base_url}/hello"
+    resource = "/hello"
+    base_url = valid_api_params["bigidBaseUrl"]
     data = {"fake": "data"}
 
     with patch("protect_with_atakama.bigid_api.requests") as mock_requests:
-        bigid_api.get("/hello")
-        mock_requests.get.assert_called_once_with(url, headers=bigid_api._headers)
+        bigid_api.get(resource)
+        mock_requests.get.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers)
 
-        bigid_api.post("/hello", data)
-        mock_requests.post.assert_called_once_with(url, headers=bigid_api._headers, data=data)
+        bigid_api.post(resource, data)
+        mock_requests.post.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, data=data)
 
-        bigid_api.put("/hello", data)
-        mock_requests.put.assert_called_once_with(url, headers=bigid_api._headers, data=data)
+        bigid_api.put(resource, data)
+        mock_requests.put.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, data=data)

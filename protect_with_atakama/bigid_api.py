@@ -1,5 +1,5 @@
 from enum import Enum, unique
-from typing import Dict, Any
+from typing import Dict
 
 import requests
 
@@ -32,14 +32,14 @@ class BigID:
             "Authorization": params["bigidToken"]
         }
 
-    def get(self, endpoint: str):
+    def get(self, endpoint: str) -> requests.Response:
         return requests.get(f"{self._base_url}{endpoint}", headers=self._headers)
 
-    def post(self, endpoint, payload):
-        return requests.post(f"{self._base_url}{endpoint}", headers=self._headers, data=payload)
+    def post(self, endpoint, data) -> requests.Response:
+        return requests.post(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
 
-    def put(self, endpoint, payload):
-        return requests.put(f"{self._base_url}{endpoint}", headers=self._headers, data=payload)
+    def put(self, endpoint, data) -> requests.Response:
+        return requests.put(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
 
     def generate_response(self, status: Status, progress: float, message: str):
         return {
