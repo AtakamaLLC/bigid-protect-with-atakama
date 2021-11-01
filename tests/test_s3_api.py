@@ -6,8 +6,8 @@ from protect_with_atakama.s3_api import S3
 
 valid_api_params = {
     "base_url": "https://s3.us-east-1.amazonaws.com/bigid-test-basic-auth",
-    "username": "test",
-    "password": "heebeejeebee"
+    "username": "username",
+    "password": "password"
 }
 
 
@@ -28,14 +28,14 @@ def test_s3_api_init_fails():
 
 
 def test_s3_api_headers(s3_api):
-    assert s3_api._headers["UserAgent"] == valid_api_params["username"]
+    assert s3_api._headers["User-Agent"] == valid_api_params["username"]
     assert s3_api._headers["Referer"] == valid_api_params["password"]
 
 
 def test_s3_api_requests(s3_api):
     base_url = valid_api_params["base_url"]
-    file = "/path/to/file.txt"
-    data = "hello"
+    file = "/test/file.txt"
+    data = b"hello"
 
     with patch("protect_with_atakama.s3_api.requests") as mock_requests:
         s3_api.get(file)
