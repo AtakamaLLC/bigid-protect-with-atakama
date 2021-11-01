@@ -1,5 +1,6 @@
+import json
 from enum import Enum, unique
-from typing import Dict
+from typing import Dict, Any
 
 import requests
 
@@ -15,22 +16,41 @@ class BigID:
     """
     BigID API Wrapper
 
-    Initialize with the params Dict received from BigID via the /manifest endpoint.
+    Initialize with the params JSON received from BigID via the /manifest endpoint:
 
-    Use get() / put() / post() to query the BigID API.
+    {
+        'actionName': 'action-name-from-manifest',
+        'executionId': 'exec-id-str',
+        'globalParams': [{'paramName': 'name-str', 'paramValue': 'value-str'}],
+        'actionParams': [{'paramName': 'name-str', 'paramValue': 'value-str'}],
+         'bigidToken': 'token-str',
+         'updateResultCallback': 'https://bigid-host.net:443/api/v1/tpa/executions/exec-id-str',
+         'bigidBaseUrl': 'https://bigid-host.net:443/api/v1/',
+         'tpaId': 'tpa-id-str'
+    }
 
-    Use generate_response() to update BigID on /execute request progress.
     """
 
-    def __init__(self, params: Dict[str, str]):
+    def __init__(self, params: Dict[str, Any]):
+        self._action_name: str = params["actionName"]
         self._base_url: str = params["bigidBaseUrl"]
         self._update_url: str = params["updateResultCallback"]
         self._execution_id: str = params["executionId"]
         self._tpa_id: str = params["tpaId"]
+        self._global_params = {p["paramName"]: p["paramValue"] for p in params["globalParams"]}
+        self._action_params = {p["paramName"]: p["paramValue"] for p in params["actionParams"]}
         self._headers: Dict[str, str] = {
             "Content-Type": "application/json; charset=UTF-8",
             "Authorization": params["bigidToken"]
         }
+
+    @property
+    def global_params(self):
+        return self._global_params
+
+    @property
+    def action_params(self):
+        return self._action_params
 
     def get(self, endpoint: str) -> requests.Response:
         return requests.get(f"{self._base_url}{endpoint}", headers=self._headers)
@@ -41,7 +61,14 @@ class BigID:
     def put(self, endpoint, data) -> requests.Response:
         return requests.put(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
 
-    def generate_response(self, status: Status, progress: float, message: str):
+    def send_progress_update(self, progress: float, message: str) -> requests.Response:
+        data = self._progress_update(Status.IN_PROGRESS, progress, message)
+        return requests.put(self._update_url, headers=self._headers, data=data)
+
+    def get_progress_completed(self) -> str:
+        return json.dumps(self._progress_update(Status.COMPLETED, 1.0, "Done"))
+
+    def _progress_update(self, status: Status, progress: float, message: str) -> Dict[str, str]:
         return {
             "executionId": self._execution_id,
             "statusEnum": status.name,

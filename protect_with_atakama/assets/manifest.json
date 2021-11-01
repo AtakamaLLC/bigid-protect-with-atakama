@@ -1,0 +1,57 @@
+{
+    "app_name": "Atakama",
+    "description": "Multi-Factor Data Encryption",
+    "global_params": [],
+    "actions": [
+        {
+            "action_id": "protect",
+            "is_sync": true,
+            "description": "Protect files labeled as sensitive by BigID.",
+            "action_params": [
+                {
+                    "param_name": "data-source-name",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "The Data Source",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
+                },
+                {
+                    "param_name": "scan-profile",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "The Scan Profile to execute before protecting sensitive data (optional)",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": false
+                },
+                {
+                    "param_name": "labels-regex",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "Limit data protection to labels matching the provided regular expression (optional)",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": false
+                },
+                {
+                    "param_name": "path",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "Limit data protection to the provided path",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": false
+                }
+            ]
+        }
+    ],
+    "permissions": [
+        {
+            "action": "data-owner",
+            "label": "Data Owner",
+            "description": "data-owner"
+        }
+    ]
+}
