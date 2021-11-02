@@ -1,8 +1,11 @@
 import json
+import logging
 from enum import Enum, unique
 from typing import Dict, Any
 
 import requests
+
+log = logging.getLogger(__name__)
 
 
 @unique
@@ -16,17 +19,17 @@ class BigID:
     """
     BigID API Wrapper
 
-    Initialize with the params JSON received from BigID via the /manifest endpoint:
+    Initialize with the params JSON received from BigID via the /execute endpoint:
 
     {
         'actionName': 'action-name-from-manifest',
         'executionId': 'exec-id-str',
         'globalParams': [{'paramName': 'name-str', 'paramValue': 'value-str'}],
         'actionParams': [{'paramName': 'name-str', 'paramValue': 'value-str'}],
-         'bigidToken': 'token-str',
-         'updateResultCallback': 'https://bigid-host.net:443/api/v1/tpa/executions/exec-id-str',
-         'bigidBaseUrl': 'https://bigid-host.net:443/api/v1/',
-         'tpaId': 'tpa-id-str'
+        'bigidToken': 'token-str',
+        'updateResultCallback': 'https://bigid-host.net:443/api/v1/tpa/executions/exec-id-str',
+        'bigidBaseUrl': 'https://bigid-host.net:443/api/v1/',
+        'tpaId': 'tpa-id-str'
     }
 
     """
@@ -43,6 +46,7 @@ class BigID:
             "Content-Type": "application/json; charset=UTF-8",
             "Authorization": params["bigidToken"]
         }
+        log.info(f"init: {self._action_name}")
 
     @property
     def global_params(self):
@@ -53,15 +57,19 @@ class BigID:
         return self._action_params
 
     def get(self, endpoint: str) -> requests.Response:
+        log.info(f"get: {endpoint}")
         return requests.get(f"{self._base_url}{endpoint}", headers=self._headers)
 
     def post(self, endpoint, data) -> requests.Response:
+        log.info(f"post: {endpoint}")
         return requests.post(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
 
     def put(self, endpoint, data) -> requests.Response:
+        log.info(f"put: {endpoint}")
         return requests.put(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
 
     def send_progress_update(self, progress: float, message: str) -> requests.Response:
+        log.info(f"send progress: {progress} {message}")
         data = self._progress_update(Status.IN_PROGRESS, progress, message)
         return requests.put(self._update_url, headers=self._headers, data=data)
 

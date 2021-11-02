@@ -11,7 +11,7 @@ lint:
 	black protect_with_atakama
 
 test:
-	PYTHONPATH=. pytest --cov protect_with_atakama --cov-fail-under=100 -v tests
+	PYTHONPATH=. pytest --cov protect_with_atakama --cov-fail-under=100 --cov-report term-missing -v tests
 
 install-hooks:
 	pre-commit install

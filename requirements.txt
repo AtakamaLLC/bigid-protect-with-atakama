@@ -7,5 +7,6 @@ black
 pre-commit
 
 # run
-requests
 falcon
+pysmb
+requests

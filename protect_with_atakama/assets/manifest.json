@@ -11,7 +11,7 @@
                 {
                     "param_name": "data-source-name",
                     "param_type": "String",
-                    "is_cleartext": true,
+                    "is_cleartext": false,
                     "param_description": "The Data Source",
                     "default_value": "",
                     "param_priority": "primary",
