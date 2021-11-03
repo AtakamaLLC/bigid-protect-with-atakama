@@ -10,9 +10,6 @@ log = logging.getLogger(__name__)
 
 
 def get_app() -> falcon.App:
-    """
-    App entry point
-    """
     log.info("initialize app")
     app = falcon.App()
     app.add_route('/manifest', ManifestResource())

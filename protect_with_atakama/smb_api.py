@@ -9,16 +9,18 @@ log = logging.getLogger(__name__)
 
 class Smb:
 
-    def __init__(self, user: str, password: str, address: str):
+    def __init__(self, user: str, password: str, address: str, domain: str = ""):
         self._user = user
         self._password = password
         self._address = address
+        self._domain = domain
         self._conn = None
 
     def __enter__(self) -> "Smb":
         if self._conn is None:
-            # TODO: domain?
-            self._conn = SMBConnection(self._user, self._password, gethostname(), self._address, is_direct_tcp=True)
+            self._conn = SMBConnection(
+                self._user, self._password, gethostname(), self._address, domain=self._domain, is_direct_tcp=True
+            )
             if not self._conn.connect(self._address, port=445):
                 self._conn = None
                 raise RuntimeError("Failed to connect")

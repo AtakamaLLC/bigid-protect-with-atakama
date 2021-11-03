@@ -46,54 +46,80 @@ class LogsResource:
 
 
 class ExecuteResource:
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
-        log.debug("on_post: execute")
-        bigid_api = BigID(req.get_media())
 
-        ds_name = bigid_api.action_params["data-source-name"]
-        log.debug(f"data source name: {ds_name}")
+    def _get_data_source_info(self, api: BigID) -> Dict[str, Any]:
+        """
+        Fetch data source, validate, return data source metadata
 
-        ds_scan_results = bigid_api.get(f"data-catalog?filter=system={ds_name}").json()
-        #log.info(f"scan results: {ds_scan_results}")
-        log.info(f"scan result rows: {ds_scan_results.get('totalRowsCounter')}")
+        :param api: BigID API instance
+        :return: data source info from BigID
+        """
 
+        ds_name = api.action_params["data-source-name"]
         query = '[{ "field": "name", "value": "%s", "operator": "equal" }]' % ds_name
-        ds_info = bigid_api.get(f"ds-connections?filter={query}").json()
-        smb_server = ds_info["data"]["ds_connections"][0]["smbServer"]
-        log.debug(f"smb server: {smb_server}")
-        log.debug(f"data source info: {ds_info}")
+        ds_data = api.get(f"ds-connections?filter={query}").json()["data"]
+        ds_count = ds_data["totalCount"]
+        if ds_count != 1:
+            raise RuntimeError(f"expected 1 matching data source, got: {ds_count}")
 
-        def empty_ip_labels() -> Dict[str, Any]:
-            return {"files": {}}
+        ds_info = ds_data["ds_connections"][0]
+        ds_type = ds_info["type"]
+        if ds_type != "smb":
+            raise RuntimeError(f"Unexpected data source type: {ds_type}")
 
-        ip_labels: Dict[str, Any] = defaultdict(empty_ip_labels)
+        return ds_info
 
-        for f in ds_scan_results.get("results"):
-            labels = f.get("attribute")
-            if labels:
-                name = f.get("objectName")
-                full = f.get("fullObjectName")
-                parent_path = f"//{smb_server}/{full[0:-len(name) - 1]}".replace("/", "\\")
-                ip_labels[parent_path]["files"][name] = {"labels": labels}
+    def _get_ip_labels(self, api: BigID, ds_name: str) -> Dict[tuple, Any]:
+        ip_labels: Dict[tuple, Any] = defaultdict(lambda: {"files": {}})
+        ds_scan = api.get(f"data-catalog?filter=system={ds_name}").json()
+        log.info(f"scan result rows: {ds_scan['totalRowsCounter']}")
+
+        _label_regex = api.action_params["label-regex"]
+        _path = api.action_params["path"]
+        ds_scan_results = ds_scan.get("results", [])
+        for f in ds_scan_results:
+            try:
+                log.debug(f"processing: {f}")
+                labels = f.get("attribute")
+                if labels:
+                    # TODO: label filter
+                    # TODO: path filter
+                    name = f["objectName"]
+                    full = f["fullObjectName"]
+                    share = f["containerName"]
+                    parent_path = f"{full[len(share):-len(name) - 1]}".replace("\\", "/")
+                    parent = (share, parent_path)
+                    ip_labels[parent]["files"][name] = {"labels": labels}
+            except:
+                log.exception(f"error processing scan result row: {f}")
 
         log.debug(f"ip_labels: {ip_labels}")
+        return ip_labels
 
-        resp.text = bigid_api.get_progress_completed()
+    def _write_ip_labels(self, api: BigID) -> None:
+        ds_info = self._get_data_source_info(api)
+        ip_labels = self._get_ip_labels(api, ds_info["name"])
 
-        # TODO: use SMB
+        server = ds_info["smbServer"]
+        domain = ds_info["domain"]
+        username = api.action_params["username"]
+        password = api.action_params["password"]
+        with Smb(username, password, server, domain) as smb:
+            for (share, path), files in ip_labels.items():
+                try:
+                    # TODO: check for existence of file/folder?
+                    ip_labels_path = f"{path}/.ip-labels"
+                    log.debug(f"writing .ip-labels: {ip_labels_path}")
+                    smb.write_file(share, ip_labels_path, json.dumps(files, indent=4).encode())
+                except:
+                    log.exception(f"failed to write .ip-labels: share={share} path={path}")
 
-        # with Smb("smbguest", "SolidG0LD", smb_server) as smb:
-        #     smb.write_file("bigid-proto-3-smb", "/hello.txt", b"hello")
-
-
-        # for k, v in ip_labels:
-        #     ip_labels_path = f"{k}\\.ip-labels"
-        #     log.debug(f"ip-labels path: {ip_labels_path}")
-        #     with open(ip_labels_path, "wb") as f:
-        #         f.write(json.dumps(v, indent=4).encode())
-
-
-
-
-
-
+    def on_post(self, req: falcon.Request, resp: falcon.Response):
+        try:
+            log.debug("on_post: execute")
+            bigid_api = BigID(req.get_media())
+            self._write_ip_labels(bigid_api)
+            resp.text = bigid_api.get_progress_completed()
+        except:
+            resp.status = falcon.HTTP_500
+            log.exception("failed to execute")

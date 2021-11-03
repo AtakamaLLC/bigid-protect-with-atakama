@@ -32,7 +32,7 @@ def test_smb_api_connect(smb_api):
         # successful connection
         assert smb_api._conn is not None
         assert smb_api._conn.called_once_with(
-            smb_api._user, smb_api._password, gethostname(), smb_api._address, is_direct_tcp=True
+            smb_api._user, smb_api._password, gethostname(), smb_api._address, domain="", is_direct_tcp=True
         )
         assert smb_api._conn.connect.called_once_with(smb_api._address, 445)
         conn = smb_api._conn

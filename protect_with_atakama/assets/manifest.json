@@ -4,34 +4,43 @@
     "global_params": [],
     "actions": [
         {
-            "action_id": "protect",
+            "action_id": "protect-smb",
             "is_sync": true,
-            "description": "Protect files labeled as sensitive by BigID.",
+            "description": "Protect labeled files stored on a SMB network share",
             "action_params": [
                 {
-                    "param_name": "data-source-name",
+                    "param_name": "username",
                     "param_type": "String",
                     "is_cleartext": false,
-                    "param_description": "The Data Source",
+                    "param_description": "SMB credentials: username",
                     "default_value": "",
                     "param_priority": "primary",
                     "is_mandatory": true
                 },
                 {
-                    "param_name": "scan-profile",
+                    "param_name": "password",
                     "param_type": "String",
-                    "is_cleartext": true,
-                    "param_description": "The Scan Profile to execute before protecting sensitive data (optional)",
+                    "is_cleartext": false,
+                    "param_description": "SMB credentials: password",
                     "default_value": "",
                     "param_priority": "primary",
-                    "is_mandatory": false
+                    "is_mandatory": true
                 },
                 {
-                    "param_name": "labels-regex",
+                    "param_name": "data-source-name",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "Limit data protection to labels matching the provided regular expression (optional)",
+                    "param_description": "The name of the SMB data source, as defined in BigID",
                     "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
+                },
+                {
+                    "param_name": "label-regex",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "If specified, protect only files that have a matching label",
+                    "default_value": "*",
                     "param_priority": "primary",
                     "is_mandatory": false
                 },
@@ -39,19 +48,12 @@
                     "param_name": "path",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "Limit data protection to the provided path",
-                    "default_value": "",
+                    "param_description": "If specified, protect only files located in the given folder",
+                    "default_value": "/",
                     "param_priority": "primary",
                     "is_mandatory": false
                 }
             ]
-        }
-    ],
-    "permissions": [
-        {
-            "action": "data-owner",
-            "label": "Data Owner",
-            "description": "data-owner"
         }
     ]
 }
