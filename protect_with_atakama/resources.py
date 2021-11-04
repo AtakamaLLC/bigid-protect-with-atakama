@@ -101,7 +101,7 @@ class ExecuteResource:
         ip_labels = self._get_ip_labels(api, ds_info["name"])
 
         server = ds_info["smbServer"]
-        domain = ds_info["domain"]
+        domain = ds_info.get("domain", "")
         username = api.action_params["username"]
         password = api.action_params["password"]
         with Smb(username, password, server, domain) as smb:
