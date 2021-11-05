@@ -7,7 +7,7 @@ LOG_FILE = "protect_with_atakama/logs/log.txt"
 def init_logging():
     log_formatter = logging.Formatter(
         fmt="%(asctime)s.%(msecs)03d %(levelname)-8s %(process)d:%(thread)d [%(filename)s:%(lineno)d] %(message)s",
-        datefmt="%Y%m%d.%H%M%S"
+        datefmt="%Y%m%d.%H%M%S",
     )
 
     log_file = logging.FileHandler(LOG_FILE)

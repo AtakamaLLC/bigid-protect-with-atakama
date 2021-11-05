@@ -8,7 +8,12 @@ import falcon
 
 from protect_with_atakama.bigid_api import BigID
 from protect_with_atakama.smb_api import Smb
-from protect_with_atakama.utils import LOG_FILE, DataSourceError, ScanResultsError, ProtectWithAtakamaError
+from protect_with_atakama.utils import (
+    LOG_FILE,
+    DataSourceError,
+    ScanResultsError,
+    ProtectWithAtakamaError,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,19 +56,22 @@ class LogsResource:
 
 
 class ExecuteResource:
-
     def _get_data_source_info(self, api: BigID) -> Dict[str, Any]:
         ds_name = api.action_params["data-source-name"]
         query = '[{ "field": "name", "value": "%s", "operator": "equal" }]' % ds_name
         ds_data = api.get(f"ds-connections?filter={query}").json()["data"]
         ds_count = ds_data["totalCount"]
         if ds_count != 1:
-            raise DataSourceError(falcon.HTTP_400, f"unexpected data source count: {ds_count}")
+            raise DataSourceError(
+                falcon.HTTP_400, f"unexpected data source count: {ds_count}"
+            )
 
         ds_info = ds_data["ds_connections"][0]
         ds_type = ds_info["type"]
         if ds_type != "smb":
-            raise DataSourceError(falcon.HTTP_400, f"unexpected data source type: {ds_type}")
+            raise DataSourceError(
+                falcon.HTTP_400, f"unexpected data source type: {ds_type}"
+            )
 
         return ds_info
 
@@ -86,7 +94,9 @@ class ExecuteResource:
                     name = f["objectName"]
                     full = f["fullObjectName"]
                     share = f["containerName"]
-                    parent_path = f"{full[len(share):-len(name) - 1]}".replace("\\", "/")
+                    parent_path = f"{full[len(share):-len(name) - 1]}".replace(
+                        "\\", "/"
+                    )
                     parent = (share, parent_path)
                     ip_labels[parent]["files"][name] = {"labels": labels}
             except:
@@ -112,9 +122,13 @@ class ExecuteResource:
                     # TODO: check for existence of file/folder?
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug(f"writing .ip-labels: {ip_labels_path}")
-                    smb.write_file(share, ip_labels_path, json.dumps(files, indent=4).encode())
+                    smb.write_file(
+                        share, ip_labels_path, json.dumps(files, indent=4).encode()
+                    )
                 except:
-                    log.exception(f"failed to write .ip-labels: share={share} path={path}")
+                    log.exception(
+                        f"failed to write .ip-labels: share={share} path={path}"
+                    )
 
     def on_post(self, req: falcon.Request, resp: falcon.Response):
         try:

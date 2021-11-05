@@ -40,11 +40,15 @@ class BigID:
         self._update_url: str = params["updateResultCallback"]
         self._execution_id: str = params["executionId"]
         self._tpa_id: str = params["tpaId"]
-        self._global_params = {p["paramName"]: p["paramValue"] for p in params["globalParams"]}
-        self._action_params = {p["paramName"]: p["paramValue"] for p in params["actionParams"]}
+        self._global_params = {
+            p["paramName"]: p["paramValue"] for p in params["globalParams"]
+        }
+        self._action_params = {
+            p["paramName"]: p["paramValue"] for p in params["actionParams"]
+        }
         self._headers: Dict[str, str] = {
             "Content-Type": "application/json; charset=UTF-8",
-            "Authorization": params["bigidToken"]
+            "Authorization": params["bigidToken"],
         }
         log.info(f"init: {self._action_name}")
 
@@ -62,11 +66,15 @@ class BigID:
 
     def post(self, endpoint, data) -> requests.Response:
         log.info(f"post: {endpoint}")
-        return requests.post(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
+        return requests.post(
+            f"{self._base_url}{endpoint}", headers=self._headers, data=data
+        )
 
     def put(self, endpoint, data) -> requests.Response:
         log.info(f"put: {endpoint}")
-        return requests.put(f"{self._base_url}{endpoint}", headers=self._headers, data=data)
+        return requests.put(
+            f"{self._base_url}{endpoint}", headers=self._headers, data=data
+        )
 
     def send_progress_update(self, progress: float, message: str) -> requests.Response:
         log.info(f"send progress: {progress} {message}")
@@ -76,10 +84,12 @@ class BigID:
     def get_progress_completed(self) -> str:
         return json.dumps(self._progress_update(Status.COMPLETED, 1.0, "Done"))
 
-    def _progress_update(self, status: Status, progress: float, message: str) -> Dict[str, str]:
+    def _progress_update(
+        self, status: Status, progress: float, message: str
+    ) -> Dict[str, str]:
         return {
             "executionId": self._execution_id,
             "statusEnum": status.name,
             "progress": progress,
-            "message": message
+            "message": message,
         }
