@@ -27,7 +27,7 @@ def fixture_smb_api_connect_fails():
 @pytest.fixture(name="smb_api_store_fails")
 def fixture_smb_api_store_fails():
     def error(*_args, **_kwargs):
-        raise Exception
+        raise RuntimeError("failed to store file")
 
     with patch("protect_with_atakama.smb_api.SMBConnection") as mock_conn_cls:
         mock_conn = MagicMock()

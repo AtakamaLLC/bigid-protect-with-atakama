@@ -9,12 +9,20 @@ from falcon import testing
 
 from protect_with_atakama.app import get_app
 from protect_with_atakama.bigid_api import BigID
-from tests.test_smb_api import fixture_smb_api, fixture_smb_api_store_fails
 
 
 @pytest.fixture(name="client")
 def client():
     return testing.TestClient(get_app())
+
+
+@pytest.fixture(name="smb_mock")
+def fixture_smb_mock():
+    with patch("protect_with_atakama.smb_api.SMBConnection") as mock_conn_cls:
+        mock_conn = MagicMock()
+        mock_conn.connect.return_value = True
+        mock_conn_cls.return_value = mock_conn
+        yield mock_conn
 
 
 def test_manifest(client):
@@ -62,7 +70,7 @@ class MockBigID(BigID):
                 "totalRowsCounter": 2,
                 "results": [
                     {
-                        "attribute": ["label-1","label-2"],
+                        "attribute": ["label-1", "label-2"],
                         "objectName": "file.txt",
                         "fullObjectName": "share/path/to/file.txt",
                         "containerName": "share"
@@ -124,7 +132,7 @@ class MockBigID(BigID):
         return ret
 
 
-def execute_body(ds_name: str):
+def execute_body(ds_name: str, label_regex: str = ".*", path: str = ""):
     return json.dumps({
         "actionName": "protect-smb",
         "bigidToken": "token98765",
@@ -137,37 +145,76 @@ def execute_body(ds_name: str):
             {"paramName": "username", "paramValue": "user"},
             {"paramName": "password", "paramValue": "secret"},
             {"paramName": "data-source-name", "paramValue": ds_name},
-            {"paramName": "label-regex", "paramValue": "*"},
-            {"paramName": "path", "paramValue": "/"},
+            {"paramName": "label-regex", "paramValue": label_regex},
+            {"paramName": "path", "paramValue": path},
         ],
     })
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_basic(client, smb_api):
-    body_ds_not_found = execute_body("ds-not-found")
-    response = client.simulate_post("/execute", body=body_ds_not_found)
-    assert response.status == falcon.HTTP_400
+def test_execute_basic(client, smb_mock):
+    files_written = []
 
-    body_ds_unsupported = execute_body("ds-unsupported")
-    response = client.simulate_post("/execute", body=body_ds_unsupported)
-    assert response.status == falcon.HTTP_400
+    def store_file(*args):
+        files_written.append(args)
 
-    body_ds_smb = execute_body("ds-smb-malformed")
-    response = client.simulate_post("/execute", body=body_ds_smb)
+    smb_mock.storeFile = store_file
+
+    # various error conditions - no .ip-labels written
+    response = client.simulate_post("/execute", body=execute_body("ds-not-found"))
+    assert response.status == falcon.HTTP_400
+    assert not files_written
+
+    response = client.simulate_post("/execute", body=execute_body("ds-unsupported"))
+    assert response.status == falcon.HTTP_400
+    assert not files_written
+
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-malformed"))
     assert response.status == falcon.HTTP_500
+    assert not files_written
 
-    body_ds_smb = execute_body("ds-smb-no-pii")
-    response = client.simulate_post("/execute", body=body_ds_smb)
+    # success, but nothing is labeled - no .ip-labels written
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-no-pii"))
     assert response.status == falcon.HTTP_200
+    assert not files_written
 
-    body_ds_smb = execute_body("ds-smb-with-pii")
-    response = client.simulate_post("/execute", body=body_ds_smb)
+    # success - 1 .ip-labels file
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
+    assert len(files_written) == 1
+    assert files_written[0][0] == "share"
+    assert files_written[0][1] == "/path/to/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_write_fails(client, smb_api_store_fails):
-    body_ds_smb = execute_body("ds-smb-with-pii")
-    response = client.simulate_post("/execute", body=body_ds_smb)
+def test_execute_label_filter(client, smb_mock):
+    files_written = []
+
+    def store_file(*args):
+        files_written.append(args)
+
+    smb_mock.storeFile = store_file
+
+    # label filter excludes label-1, label-2
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii", label_regex="xyz"))
+    assert response.status == falcon.HTTP_200
+    assert not files_written
+
+    # label filter includes label-2
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii", label_regex="label-2"))
+    assert response.status == falcon.HTTP_200
+    assert len(files_written) == 1
+    assert files_written[0][0] == "share"
+    assert files_written[0][1] == "/path/to/.ip-labels"
+
+
+@patch("protect_with_atakama.resources.BigID", MockBigID)
+def test_execute_smb_write_fails(client, smb_mock):
+
+    def store_file(*args):
+        raise RuntimeError("can't store")
+
+    smb_mock.storeFile = store_file
+
+    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200

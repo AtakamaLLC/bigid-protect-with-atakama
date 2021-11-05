@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections import defaultdict
 from typing import Dict, Any
 
@@ -72,15 +73,15 @@ class ExecuteResource:
         ds_scan = api.get(f"data-catalog?filter=system={ds_name}").json()
         log.info(f"scan result rows: {ds_scan['totalRowsCounter']}")
 
-        _label_regex = api.action_params["label-regex"]
+        label_regex = api.action_params["label-regex"]
         _path = api.action_params["path"]
         ds_scan_results = ds_scan.get("results", [])
         for f in ds_scan_results:
             try:
                 log.debug(f"processing: {f}")
                 labels = f.get("attribute")
-                if labels:
-                    # TODO: label filter
+                filtered_labels = [l for l in labels if re.match(label_regex, l, re.I)]
+                if filtered_labels:
                     # TODO: path filter
                     name = f["objectName"]
                     full = f["fullObjectName"]
@@ -112,7 +113,6 @@ class ExecuteResource:
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug(f"writing .ip-labels: {ip_labels_path}")
                     smb.write_file(share, ip_labels_path, json.dumps(files, indent=4).encode())
-                    print("here")
                 except:
                     log.exception(f"failed to write .ip-labels: share={share} path={path}")
 
