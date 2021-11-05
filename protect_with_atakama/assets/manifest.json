@@ -1,6 +1,11 @@
 {
-    "app_name": "Atakama",
-    "description": "Multi-Factor Data Encryption",
+    "app_name": "Protect with Atakama",
+    "description": "Multi-factor encryption for data at rest",
+    "version": "1.0.0",
+    "category": "protection",
+    "license_type": "FREE",
+    "vendor": "Atakama",
+    "license_verification_key": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiUHJvdGVjdCB3aXRoIEF0YWthbWEiLCJjYXRlZ29yeSI6IlByb3RlY3Rpb24iLCJsaWNlbnNlVHlwZSI6ImZyZWUiLCJ2ZW5kb3IiOiJBdGFrYW1hIiwidmVyc2lvbiI6IjEuMCIsInRva2VuIjoiYXBwTWFya2V0cGxhY2UifQ.U4BJF4kNPt2IiAD3V2WI8eVD_jH2caXdBAzkXQaSgnc2czRZgH0YqeerhjFYlJ4JFCk6DyvrRljzai23Xyh463X-HQllUkxTXVe1KbqsbYwbwUGM7eTcknDyK2e97Coih-cJdxpv1wLsFG-vIr_RktRxPoi8ArH9T7AEeHCRW-N6DzBP1diCvmYlAqCK0u6DCimqqToCEhRYA56NC9EndtoDhzrXKgNwmf-NFWp5WEWdNLGIX2ynTY3EgmaZyZUW8hjekvH-grHdW_Rvf2UqmI0mN-n3QOZz1TH23BKXT9KXUIItPII9NU9Vh7GhBUuP0g0z8-QlYa-TK4BdTEbdIygwc_sW2IYr8q1rSqApKjvYFK-Lfck8wIUNrtUeeefVubcE-qyipFXh1ZEyd8s57O0QODuJt_O2B0XRq8Ai-0xxlYrYmPAXPIRVtdO7DbI_OMqswrfNSzAfRdDl8SO3EahwbDCz7FtUZejgP3EhjyFGLseAG_cMqAHyIEKBPg_E4CdXY4KD8dIwGOMOcMYebDul8u-VEd4zAMSoOtGa8ZJEkJSk70QYUGtADP8AWIR36RlX4j_CF_2qcb8NgOz1HSsvUN4DvS9pOR_a1KTC_sfZCILEZOsGUpz0ZyTIlnMQboHxHh_MxFXkpRskdnEhW4gN_rTXGoSaYzDDJF1jnNg",
     "global_params": [],
     "actions": [
         {
