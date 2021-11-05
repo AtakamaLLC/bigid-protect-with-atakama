@@ -7,19 +7,21 @@ import falcon
 
 from protect_with_atakama.bigid_api import BigID
 from protect_with_atakama.smb_api import Smb
-from protect_with_atakama.utils import LOG_FILE
+from protect_with_atakama.utils import LOG_FILE, DataSourceError, ScanResultsError, ProtectWithAtakamaError
 
 log = logging.getLogger(__name__)
 
 
 class ManifestResource:
+    manifest_path: str = "protect_with_atakama/assets/manifest.json"
+
     def __init__(self):
         self._manifest: str = ""
 
     @property
     def manifest(self):
         if not self._manifest:
-            with open("protect_with_atakama/assets/manifest.json", "r") as f:
+            with open(self.manifest_path, "r") as f:
                 self._manifest = f.read()
         return self._manifest
 
@@ -28,8 +30,9 @@ class ManifestResource:
         try:
             resp.text = self.manifest
             log.debug(f"return manifest: len={len(resp.text)}")
-        except:
+        except Exception as e:
             resp.status = falcon.HTTP_500
+            resp.text = repr(e)
             log.exception("failed to get manifest")
 
 
@@ -40,37 +43,32 @@ class LogsResource:
             with open(LOG_FILE, "r") as f:
                 resp.text = f.read()
                 log.debug(f"return logs: len={len(resp.text)}")
-        except:
+        except Exception as e:
             resp.status = falcon.HTTP_500
+            resp.text = repr(e)
             log.exception("failed to get logs")
 
 
 class ExecuteResource:
 
     def _get_data_source_info(self, api: BigID) -> Dict[str, Any]:
-        """
-        Fetch data source, validate, return data source metadata
-
-        :param api: BigID API instance
-        :return: data source info from BigID
-        """
-
         ds_name = api.action_params["data-source-name"]
         query = '[{ "field": "name", "value": "%s", "operator": "equal" }]' % ds_name
         ds_data = api.get(f"ds-connections?filter={query}").json()["data"]
         ds_count = ds_data["totalCount"]
         if ds_count != 1:
-            raise RuntimeError(f"expected 1 matching data source, got: {ds_count}")
+            raise DataSourceError(falcon.HTTP_400, f"unexpected data source count: {ds_count}")
 
         ds_info = ds_data["ds_connections"][0]
         ds_type = ds_info["type"]
         if ds_type != "smb":
-            raise RuntimeError(f"Unexpected data source type: {ds_type}")
+            raise DataSourceError(falcon.HTTP_400, f"unexpected data source type: {ds_type}")
 
         return ds_info
 
-    def _get_ip_labels(self, api: BigID, ds_name: str) -> Dict[tuple, Any]:
+    def _get_ip_labels(self, api: BigID) -> Dict[tuple, Any]:
         ip_labels: Dict[tuple, Any] = defaultdict(lambda: {"files": {}})
+        ds_name = api.action_params["data-source-name"]
         ds_scan = api.get(f"data-catalog?filter=system={ds_name}").json()
         log.info(f"scan result rows: {ds_scan['totalRowsCounter']}")
 
@@ -98,7 +96,10 @@ class ExecuteResource:
 
     def _write_ip_labels(self, api: BigID) -> None:
         ds_info = self._get_data_source_info(api)
-        ip_labels = self._get_ip_labels(api, ds_info["name"])
+        ip_labels = self._get_ip_labels(api)
+        if not ip_labels:
+            log.warning("no ip-labels to write")
+            return
 
         server = ds_info["smbServer"]
         domain = ds_info.get("domain", "")
@@ -111,6 +112,7 @@ class ExecuteResource:
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug(f"writing .ip-labels: {ip_labels_path}")
                     smb.write_file(share, ip_labels_path, json.dumps(files, indent=4).encode())
+                    print("here")
                 except:
                     log.exception(f"failed to write .ip-labels: share={share} path={path}")
 
@@ -120,6 +122,11 @@ class ExecuteResource:
             bigid_api = BigID(req.get_media())
             self._write_ip_labels(bigid_api)
             resp.text = bigid_api.get_progress_completed()
-        except:
+        except ProtectWithAtakamaError as e:
+            resp.status = e.status
+            resp.text = e.message
+            log.exception("failed to execute (400)")
+        except Exception as e:
             resp.status = falcon.HTTP_500
-            log.exception("failed to execute")
+            resp.text = repr(e)
+            log.exception("failed to execute (500)")

@@ -19,3 +19,17 @@ def init_logging():
     logging.root.addHandler(log_file)
     logging.root.addHandler(log_stream)
     logging.root.setLevel(logging.DEBUG)
+
+
+class ProtectWithAtakamaError(Exception):
+    def __init__(self, status: str, message: str):
+        self.status = status
+        self.message = message
+
+
+class DataSourceError(ProtectWithAtakamaError):
+    pass
+
+
+class ScanResultsError(ProtectWithAtakamaError):
+    pass

@@ -15,11 +15,24 @@ def fixture_smb_api():
         yield Smb("user", "password", "1.2.3.4")
 
 
-@pytest.fixture(name="smb_api_bad")
-def fixture_smb_api_bad():
+@pytest.fixture(name="smb_api_connect_fails")
+def fixture_smb_api_connect_fails():
     with patch("protect_with_atakama.smb_api.SMBConnection") as mock_conn_cls:
         mock_conn = MagicMock()
         mock_conn.connect.return_value = False
+        mock_conn_cls.return_value = mock_conn
+        yield Smb("user", "password", "1.2.3.4")
+
+
+@pytest.fixture(name="smb_api_store_fails")
+def fixture_smb_api_store_fails():
+    def error(*_args, **_kwargs):
+        raise Exception
+
+    with patch("protect_with_atakama.smb_api.SMBConnection") as mock_conn_cls:
+        mock_conn = MagicMock()
+        mock_conn.connect.return_value = True
+        mock_conn.storeFile = error
         mock_conn_cls.return_value = mock_conn
         yield Smb("user", "password", "1.2.3.4")
 
@@ -42,17 +55,17 @@ def test_smb_api_connect(smb_api):
     assert smb_api._conn is None
 
 
-def test_smb_api_cannot_connect(smb_api_bad):
+def test_smb_api_cannot_connect(smb_api_connect_fails):
     # not connected yet
-    assert smb_api_bad._conn is None
+    assert smb_api_connect_fails._conn is None
 
     with pytest.raises(RuntimeError):
-        with smb_api_bad:
+        with smb_api_connect_fails:
             # failed connection raises
             pass
 
     # still disconnected
-    assert smb_api_bad._conn is None
+    assert smb_api_connect_fails._conn is None
 
 
 def test_smb_api_write_file(smb_api):
