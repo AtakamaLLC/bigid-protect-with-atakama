@@ -8,6 +8,10 @@ log = logging.getLogger(__name__)
 
 
 class Smb:
+    """
+    Wrapper for PySMB `SMBConnection` class
+    """
+
     def __init__(self, user: str, password: str, address: str, domain: str = ""):
         self._user = user
         self._password = password

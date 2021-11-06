@@ -14,12 +14,12 @@ log = logging.getLogger(__name__)
 
 
 def get_app() -> falcon.App:
-    log.info("initialize app")
-    app = falcon.App()
-    app.add_route("/manifest", ManifestResource())
-    app.add_route("/logs", LogsResource())
-    app.add_route("/execute", ExecuteResource())
-    return app
+    log.info("initialize atakama app")
+    atakama = falcon.App()
+    atakama.add_route("/manifest", ManifestResource())
+    atakama.add_route("/logs", LogsResource())
+    atakama.add_route("/execute", ExecuteResource())
+    return atakama
 
 
 app = get_app()

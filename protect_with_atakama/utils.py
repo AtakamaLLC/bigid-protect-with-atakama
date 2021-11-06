@@ -5,6 +5,9 @@ LOG_FILE = "protect_with_atakama/logs/log.txt"
 
 
 def init_logging():
+    """
+    Init File and Stream log handlers
+    """
     log_formatter = logging.Formatter(
         fmt="%(asctime)s.%(msecs)03d %(levelname)-8s %(process)d:%(thread)d [%(filename)s:%(lineno)d] %(message)s",
         datefmt="%Y%m%d.%H%M%S",
@@ -23,6 +26,7 @@ def init_logging():
 
 class ProtectWithAtakamaError(Exception):
     def __init__(self, status: str, message: str):
+        super().__init__()
         self.status = status
         self.message = message
 

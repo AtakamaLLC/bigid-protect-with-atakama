@@ -50,7 +50,7 @@ class BigID:
             "Content-Type": "application/json; charset=UTF-8",
             "Authorization": params["bigidToken"],
         }
-        log.info(f"init: {self._action_name}")
+        log.info("init: %s", self._action_name)
 
     @property
     def global_params(self):
@@ -61,23 +61,23 @@ class BigID:
         return self._action_params
 
     def get(self, endpoint: str) -> requests.Response:
-        log.info(f"get: {endpoint}")
+        log.info("get: %s", endpoint)
         return requests.get(f"{self._base_url}{endpoint}", headers=self._headers)
 
     def post(self, endpoint, data) -> requests.Response:
-        log.info(f"post: {endpoint}")
+        log.info("post: %s", endpoint)
         return requests.post(
             f"{self._base_url}{endpoint}", headers=self._headers, data=data
         )
 
     def put(self, endpoint, data) -> requests.Response:
-        log.info(f"put: {endpoint}")
+        log.info("put: %s", endpoint)
         return requests.put(
             f"{self._base_url}{endpoint}", headers=self._headers, data=data
         )
 
     def send_progress_update(self, progress: float, message: str) -> requests.Response:
-        log.info(f"send progress: {progress} {message}")
+        log.info("send progress: %s %s", progress, message)
         data = self._progress_update(Status.IN_PROGRESS, progress, message)
         return requests.put(self._update_url, headers=self._headers, data=data)
 
