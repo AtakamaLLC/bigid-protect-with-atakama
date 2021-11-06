@@ -35,6 +35,9 @@ class ManifestResource:
         return self._manifest
 
     def on_get(self, _req: falcon.Request, resp: falcon.Response):
+        """
+        Handle GET request
+        """
         log.debug("on_get: manifest")
         try:
             resp.text = self.manifest
@@ -53,6 +56,9 @@ class LogsResource:
     def on_get(
         self, _req: falcon.Request, resp: falcon.Response
     ):  # pylint: disable=no-self-use
+        """
+        Handle GET request
+        """
         log.debug("on_get: logs")
         try:
             with open(LOG_FILE, "r", encoding="utf-8") as f:
