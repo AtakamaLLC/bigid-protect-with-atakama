@@ -303,7 +303,7 @@ def test_execute_smb_verify_connection_basic(client, smb_mock):
     assert response.status == falcon.HTTP_200
     assert len(files_written) == 1
     assert files_written[0][0] == "share-name"
-    assert files_written[0][1] == "/.verify-smb-connection"
+    assert len(files_written[0][1]) == 32
     assert len(files_deleted) == 1
     assert files_deleted[0][0] == "share-name"
-    assert files_deleted[0][1] == "/.verify-smb-connection"
+    assert files_deleted[0][1] == files_written[0][1]

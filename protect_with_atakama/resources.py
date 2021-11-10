@@ -120,8 +120,9 @@ class ExecuteResource:
         password = api.action_params["password"]
         share = api.action_params["share"]
         with Smb(username, password, server, domain) as smb:
-            smb.write_file(share, "/.verify-smb-connection", b"test")
-            smb.delete_file(share, "/.verify-smb-connection")
+            filename = os.urandom(16).hex()
+            smb.write_file(share, filename, b"verify-smb-connection")
+            smb.delete_file(share, filename)
 
     @staticmethod
     def _get_data_source_info(api: BigID) -> Dict[str, Any]:
