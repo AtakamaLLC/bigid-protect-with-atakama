@@ -198,7 +198,10 @@ class ExecuteResource:
         with Smb(username, password, server, domain) as smb:
             for (share, path), files in ip_labels.items():
                 try:
-                    # TODO: check for existence of file/folder?
+                    if not smb.is_dir(share, path):
+                        log.warning("path not found, skipping - share=%s path=%s", share, path)
+                        continue
+
                     temp_path = f"{path}/{os.urandom(16).hex()}"
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug("writing .ip-labels: %s", ip_labels_path)

@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 import falcon
 import pytest
 from falcon import testing
+from smb.smb_structs import OperationFailure
 
 from protect_with_atakama.app import get_app
 from protect_with_atakama.bigid_api import BigID
@@ -34,9 +35,15 @@ def fixture_smb_mock():
         def delete_files(*args):
             mock_conn.files_deleted.append(args)
 
+        def list_path(_share, path, *_args, **_kwargs):
+            if "another" in path:
+                raise OperationFailure("msg", "sub-msg")
+            return ["something"]
+
         mock_conn.storeFile = store_file
         mock_conn.rename = rename
         mock_conn.deleteFiles = delete_files
+        mock_conn.listPath = list_path
 
         mock_conn_cls.return_value = mock_conn
         yield mock_conn
@@ -218,15 +225,11 @@ def test_execute_smb_protect_basic(client, smb_mock):
     # success - 2 .ip-labels files
     response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
-    assert len(smb_mock.files_written) == 2
+    assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share"
     assert smb_mock.files_renamed[0][0] == "share"
     assert smb_mock.files_renamed[0][1] == smb_mock.files_written[0][1]
     assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
-    assert smb_mock.files_written[1][0] == "share"
-    assert smb_mock.files_renamed[1][0] == "share"
-    assert smb_mock.files_renamed[1][1] == smb_mock.files_written[1][1]
-    assert smb_mock.files_renamed[1][2] == "path/to/another/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
@@ -256,15 +259,11 @@ def test_execute_smb_protect_path_filter(client, smb_mock):
     # path filter includes share/path/to/file.txt
     response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share/path"))
     assert response.status == falcon.HTTP_200
-    assert len(smb_mock.files_written) == 2
+    assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share"
     assert smb_mock.files_renamed[0][0] == "share"
     assert smb_mock.files_renamed[0][1] == smb_mock.files_written[0][1]
     assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
-    assert smb_mock.files_written[1][0] == "share"
-    assert smb_mock.files_renamed[1][0] == "share"
-    assert smb_mock.files_renamed[1][1] == smb_mock.files_written[1][1]
-    assert smb_mock.files_renamed[1][2] == "path/to/another/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
@@ -274,7 +273,7 @@ def test_execute_smb_protect_write_fails(client, smb_mock):
     def store_file(*args):
         nonlocal store_file_count
         store_file_count += 1
-        if store_file_count % 2 == 0:
+        if store_file_count % 2 == 1:
             # every other call fails
             raise RuntimeError("can't store")
 

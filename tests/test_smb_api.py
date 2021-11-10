@@ -2,6 +2,7 @@ from socket import gethostname
 from unittest.mock import patch, MagicMock
 
 import pytest
+from smb.smb_structs import OperationFailure
 
 from protect_with_atakama.smb_api import Smb
 
@@ -11,6 +12,14 @@ def fixture_smb_api():
     with patch("protect_with_atakama.smb_api.SMBConnection") as mock_conn_cls:
         mock_conn = MagicMock()
         mock_conn.connect.return_value = True
+
+        def list_path(_share, path):
+            if path == "not-found":
+                raise OperationFailure("msg", "sub-msg")
+            return ["something"]
+
+        mock_conn.listPath = list_path
+
         mock_conn_cls.return_value = mock_conn
         yield Smb("user", "password", "1.2.3.4")
 
@@ -84,6 +93,9 @@ def test_smb_api_file_ops(smb_api):
 
         smb_api.rename("share", "/path/to/file", "/new/path/to/file")
         assert smb_api.connection.rename.called_once_with("share", "/path/to/file", "/new/path/to/file")
+
+        assert smb_api.is_dir("share", "/path/to/file")
+        assert not smb_api.is_dir("share", "not-found")
 
     # disconnected on exit
     assert smb_api._conn is None
