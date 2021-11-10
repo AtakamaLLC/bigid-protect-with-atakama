@@ -189,6 +189,7 @@ class ExecuteResource:
             log.warning("no ip-labels to write")
             return
 
+        error_count = 0
         server = ds_info["smbServer"]
         domain = ds_info.get("domain", "")
         username = api.action_params["username"]
@@ -203,6 +204,10 @@ class ExecuteResource:
                         share, ip_labels_path, json.dumps(files, indent=4).encode()
                     )
                 except:
+                    error_count += 1
                     log.exception(
                         "failed to write .ip-labels: share=%s path=%s", share, path
                     )
+
+        if error_count:
+            raise ExecutionError(falcon.HTTP_400, f"Failed to write {error_count} of {len(ip_labels)} files")

@@ -80,6 +80,12 @@ class MockBigID(BigID):
                         "containerName": "share"
                     },
                     {
+                        "attribute": ["label-3", "label-4"],
+                        "objectName": "file.txt",
+                        "fullObjectName": "share/path/to/another/file.txt",
+                        "containerName": "share"
+                    },
+                    {
                         "attribute": ["label-1", "label-2"],
                     }
                 ]
@@ -203,9 +209,11 @@ def test_execute_smb_protect_basic(client, smb_mock):
     # success - 1 .ip-labels file
     response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
-    assert len(files_written) == 1
+    assert len(files_written) == 2
     assert files_written[0][0] == "share"
     assert files_written[0][1] == "path/to/.ip-labels"
+    assert files_written[1][0] == "share"
+    assert files_written[1][1] == "path/to/another/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
@@ -247,21 +255,28 @@ def test_execute_smb_protect_path_filter(client, smb_mock):
     # path filter includes share/path/to/file.txt
     response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share/path"))
     assert response.status == falcon.HTTP_200
-    assert len(files_written) == 1
+    assert len(files_written) == 2
     assert files_written[0][0] == "share"
     assert files_written[0][1] == "path/to/.ip-labels"
+    assert files_written[1][0] == "share"
+    assert files_written[1][1] == "path/to/another/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
 def test_execute_smb_protect_write_fails(client, smb_mock):
+    store_file_count = 0
 
     def store_file(*args):
-        raise RuntimeError("can't store")
+        nonlocal  store_file_count
+        store_file_count += 1
+        if store_file_count % 2 == 0:
+            # every other call fails
+            raise RuntimeError("can't store")
 
     smb_mock.storeFile = store_file
 
     response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
-    assert response.status == falcon.HTTP_200
+    assert response.status == falcon.HTTP_400
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
