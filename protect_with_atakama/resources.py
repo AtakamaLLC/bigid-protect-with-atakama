@@ -199,13 +199,17 @@ class ExecuteResource:
             for (share, path), files in ip_labels.items():
                 try:
                     if not smb.is_dir(share, path):
-                        log.warning("path not found, skipping - share=%s path=%s", share, path)
+                        log.warning(
+                            "path not found, skipping - share=%s path=%s", share, path
+                        )
                         continue
 
                     temp_path = f"{path}/{os.urandom(16).hex()}"
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug("writing .ip-labels: %s", ip_labels_path)
-                    smb.write_file(share, temp_path, json.dumps(files, indent=4).encode())
+                    smb.write_file(
+                        share, temp_path, json.dumps(files, indent=4).encode()
+                    )
                     smb.rename(share, temp_path, ip_labels_path)
                 except:
                     error_count += 1
@@ -214,4 +218,7 @@ class ExecuteResource:
                     )
 
         if error_count:
-            raise ExecutionError(falcon.HTTP_400, f"Failed to write {error_count} of {len(ip_labels)} files")
+            raise ExecutionError(
+                falcon.HTTP_400,
+                f"Failed to write {error_count} of {len(ip_labels)} files",
+            )
