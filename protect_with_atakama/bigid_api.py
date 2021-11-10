@@ -1,7 +1,7 @@
 import json
 import logging
 from enum import Enum, unique
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import requests
 
@@ -53,16 +53,22 @@ class BigID:
         log.info("init: %s", self._action_name)
 
     @property
-    def global_params(self):
+    def global_params(self) -> Dict[str, Any]:
         return self._global_params
 
     @property
-    def action_params(self):
+    def action_params(self) -> Dict[str, Any]:
         return self._action_params
 
-    def get(self, endpoint: str) -> requests.Response:
-        log.info("get: %s", endpoint)
-        return requests.get(f"{self._base_url}{endpoint}", headers=self._headers)
+    @property
+    def action_name(self) -> str:
+        return self._action_name
+
+    def get(self, endpoint: str, params: Optional[Dict] = None) -> requests.Response:
+        log.info("get: %s %s", endpoint, params)
+        return requests.get(
+            f"{self._base_url}{endpoint}", params=params, headers=self._headers
+        )
 
     def post(self, endpoint, data) -> requests.Response:
         log.info("post: %s", endpoint)

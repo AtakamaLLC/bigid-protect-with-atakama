@@ -45,7 +45,7 @@
                     "param_type": "String",
                     "is_cleartext": true,
                     "param_description": "If specified, protect only files that have a matching label",
-                    "default_value": "*",
+                    "default_value": ".*",
                     "param_priority": "primary",
                     "is_mandatory": false
                 },
@@ -57,6 +57,49 @@
                     "default_value": "/",
                     "param_priority": "primary",
                     "is_mandatory": false
+                }
+            ]
+        },
+        {
+            "action_id": "verify-smb-connection",
+            "is_sync": true,
+            "description": "Check connectivity to SMB network share",
+            "action_params": [
+                {
+                    "param_name": "username",
+                    "param_type": "String",
+                    "is_cleartext": false,
+                    "param_description": "SMB credentials: username",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
+                },
+                {
+                    "param_name": "password",
+                    "param_type": "String",
+                    "is_cleartext": false,
+                    "param_description": "SMB credentials: password",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
+                },
+                {
+                    "param_name": "share",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "The name of the SMB share",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
+                },
+                {
+                    "param_name": "data-source-name",
+                    "param_type": "String",
+                    "is_cleartext": true,
+                    "param_description": "The name of the SMB data source, as defined in BigID",
+                    "default_value": "",
+                    "param_priority": "primary",
+                    "is_mandatory": true
                 }
             ]
         }

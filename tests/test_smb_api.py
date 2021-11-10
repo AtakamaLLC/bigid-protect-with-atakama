@@ -68,7 +68,7 @@ def test_smb_api_cannot_connect(smb_api_connect_fails):
     assert smb_api_connect_fails._conn is None
 
 
-def test_smb_api_write_file(smb_api):
+def test_smb_api_file_ops(smb_api):
     # not connected yet
     assert smb_api._conn is None
     with pytest.raises(RuntimeError):
@@ -80,6 +80,11 @@ def test_smb_api_write_file(smb_api):
         assert smb_api.connection.storeFile.called_once()
         assert smb_api.connection.storeFile.mock_calls[0][1][0] == "share"
         assert smb_api.connection.storeFile.mock_calls[0][1][1] == "/path/to/file"
+
+        smb_api.delete_file("share", "/path/to/file")
+        assert smb_api.connection.deleteFiles.called_once()
+        assert smb_api.connection.deleteFiles.mock_calls[0][1][0] == "share"
+        assert smb_api.connection.deleteFiles.mock_calls[0][1][1] == "/path/to/file"
 
     # disconnected on exit
     assert smb_api._conn is None

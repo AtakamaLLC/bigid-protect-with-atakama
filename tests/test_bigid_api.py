@@ -81,7 +81,7 @@ def test_bigid_api_requests(bigid_api):
 
     with patch("protect_with_atakama.bigid_api.requests") as mock_requests:
         bigid_api.get(resource)
-        mock_requests.get.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers)
+        mock_requests.get.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, params=None)
 
         bigid_api.post(resource, data)
         mock_requests.post.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, data=data)

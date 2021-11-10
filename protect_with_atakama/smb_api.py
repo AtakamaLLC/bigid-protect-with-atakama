@@ -51,3 +51,6 @@ class Smb:
             temp_file.write(data)
             temp_file.seek(0)
             return self.connection.storeFile(share, path, temp_file)
+
+    def delete_file(self, share: str, path: str) -> None:
+        self.connection.deleteFiles(share, path)

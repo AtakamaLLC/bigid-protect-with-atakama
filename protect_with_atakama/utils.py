@@ -1,7 +1,8 @@
 import logging
+from logging.handlers import RotatingFileHandler
 
-
-LOG_FILE = "protect_with_atakama/logs/log.txt"
+LOG_DIR = "protect_with_atakama/logs"
+LOG_FILE = f"{LOG_DIR}/log.txt"
 
 
 def init_logging():
@@ -13,7 +14,9 @@ def init_logging():
         datefmt="%Y%m%d.%H%M%S",
     )
 
-    log_file = logging.FileHandler(LOG_FILE)
+    log_file = RotatingFileHandler(
+        LOG_FILE, maxBytes=5000000, backupCount=5, encoding="utf-8"
+    )
     log_file.setFormatter(log_formatter)
 
     log_stream = logging.StreamHandler()
@@ -24,16 +27,19 @@ def init_logging():
     logging.root.setLevel(logging.DEBUG)
 
 
-class ProtectWithAtakamaError(Exception):
+class ExecutionError(Exception):
     def __init__(self, status: str, message: str):
         super().__init__()
         self.status = status
         self.message = message
 
+    def __repr__(self):
+        return f"{self.status} - {self.message}"
 
-class DataSourceError(ProtectWithAtakamaError):
+
+class DataSourceError(ExecutionError):
     pass
 
 
-class ScanResultsError(ProtectWithAtakamaError):
+class ScanResultsError(ExecutionError):
     pass

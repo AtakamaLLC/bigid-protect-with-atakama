@@ -1,6 +1,6 @@
 import json
 import os
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest.mock import patch, MagicMock
 
 import falcon
@@ -9,6 +9,7 @@ from falcon import testing
 
 from protect_with_atakama.app import get_app
 from protect_with_atakama.bigid_api import BigID
+from protect_with_atakama.utils import ExecutionError
 
 
 @pytest.fixture(name="client")
@@ -36,24 +37,27 @@ def test_manifest(client):
 
 
 def test_logs(client):
-    with patch("protect_with_atakama.resources.LOG_FILE", "fnf"):
-        # log file not found - returns empty string
+    with patch("protect_with_atakama.resources.LOG_DIR", "fnf"):
+        # log dir not found
         response = client.simulate_get("/logs")
         assert response.status == falcon.HTTP_500
 
-    try:
-        with NamedTemporaryFile(delete=False) as log_file:
-            log_file.write(b"log this")
-        with patch("protect_with_atakama.resources.LOG_FILE", log_file.name):
+    with TemporaryDirectory() as log_dir:
+        with open(os.path.join(log_dir, "log.txt"), "w") as f:
+            f.write("log.txt\n")
+        with open(os.path.join(log_dir, "log.txt.1"), "w") as f:
+            f.write("log.txt.1\n")
+        with open(os.path.join(log_dir, "log.txt.2"), "w") as f:
+            f.write("log.txt.2\n")
+
+        with patch("protect_with_atakama.resources.LOG_DIR", log_dir):
             # log file exists - returns file contents
             response = client.simulate_get("/logs")
-            assert response.text == "log this"
-    finally:
-        os.unlink(log_file.name)
+            assert response.text == "log.txt.2\nlog.txt.1\nlog.txt\n"
 
 
 class MockBigID(BigID):
-    def get(self, endpoint: str):
+    def get(self, endpoint: str, params=None):
         if endpoint.startswith("ds-connections"):
             return self._get_data_source_info()
         elif endpoint.startswith("data-catalog"):
@@ -132,7 +136,7 @@ class MockBigID(BigID):
         return ret
 
 
-def execute_body(ds_name: str, label_regex: str = ".*", path: str = ""):
+def protect_smb_body(ds_name: str, label_regex: str = ".*", path: str = ""):
     return json.dumps({
         "actionName": "protect-smb",
         "bigidToken": "token98765",
@@ -151,8 +155,26 @@ def execute_body(ds_name: str, label_regex: str = ".*", path: str = ""):
     })
 
 
+def verify_smb_connection_body(ds_name: str, action="verify-smb-connection"):
+    return json.dumps({
+        "actionName": action,
+        "bigidToken": "token12345",
+        "bigidBaseUrl": "http://bigid-base-url",
+        "updateResultCallback": "http://bigid-base-url/update/01289",
+        "executionId": "01289",
+        "tpaId": "tpa-id-345",
+        "globalParams": [],
+        "actionParams": [
+            {"paramName": "username", "paramValue": "user"},
+            {"paramName": "password", "paramValue": "secret"},
+            {"paramName": "data-source-name", "paramValue": ds_name},
+            {"paramName": "share", "paramValue": "share-name"},
+        ],
+    })
+
+
 @patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_basic(client, smb_mock):
+def test_execute_smb_protect_basic(client, smb_mock):
     files_written = []
 
     def store_file(*args):
@@ -161,33 +183,33 @@ def test_execute_basic(client, smb_mock):
     smb_mock.storeFile = store_file
 
     # various error conditions - no .ip-labels written
-    response = client.simulate_post("/execute", body=execute_body("ds-not-found"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-not-found"))
     assert response.status == falcon.HTTP_400
     assert not files_written
 
-    response = client.simulate_post("/execute", body=execute_body("ds-unsupported"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-unsupported"))
     assert response.status == falcon.HTTP_400
     assert not files_written
 
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-malformed"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-malformed"))
     assert response.status == falcon.HTTP_500
     assert not files_written
 
     # success, but nothing is labeled - no .ip-labels written
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-no-pii"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-no-pii"))
     assert response.status == falcon.HTTP_200
     assert not files_written
 
     # success - 1 .ip-labels file
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
     assert len(files_written) == 1
     assert files_written[0][0] == "share"
-    assert files_written[0][1] == "/path/to/.ip-labels"
+    assert files_written[0][1] == "path/to/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_label_filter(client, smb_mock):
+def test_execute_smb_protect_label_filter(client, smb_mock):
     files_written = []
 
     def store_file(*args):
@@ -196,25 +218,77 @@ def test_execute_label_filter(client, smb_mock):
     smb_mock.storeFile = store_file
 
     # label filter excludes label-1, label-2
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii", label_regex="xyz"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", label_regex="xyz"))
     assert response.status == falcon.HTTP_200
     assert not files_written
 
     # label filter includes label-2
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii", label_regex="label-2"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", label_regex="label-2"))
     assert response.status == falcon.HTTP_200
     assert len(files_written) == 1
     assert files_written[0][0] == "share"
-    assert files_written[0][1] == "/path/to/.ip-labels"
+    assert files_written[0][1] == "path/to/.ip-labels"
 
 
 @patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_write_fails(client, smb_mock):
+def test_execute_smb_protect_path_filter(client, smb_mock):
+    files_written = []
+
+    def store_file(*args):
+        files_written.append(args)
+
+    smb_mock.storeFile = store_file
+
+    # path filter excludes share/path/to/file.txt
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share2/path"))
+    assert response.status == falcon.HTTP_200
+    assert not files_written
+
+    # path filter includes share/path/to/file.txt
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share/path"))
+    assert response.status == falcon.HTTP_200
+    assert len(files_written) == 1
+    assert files_written[0][0] == "share"
+    assert files_written[0][1] == "path/to/.ip-labels"
+
+
+@patch("protect_with_atakama.resources.BigID", MockBigID)
+def test_execute_smb_protect_write_fails(client, smb_mock):
 
     def store_file(*args):
         raise RuntimeError("can't store")
 
     smb_mock.storeFile = store_file
 
-    response = client.simulate_post("/execute", body=execute_body("ds-smb-with-pii"))
+    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
+
+
+@patch("protect_with_atakama.resources.BigID", MockBigID)
+def test_execute_unknown_action(client):
+    response = client.simulate_post("/execute", body=verify_smb_connection_body("ds-name", "unknown-action"))
+    assert response.status == falcon.HTTP_400
+
+
+@patch("protect_with_atakama.resources.BigID", MockBigID)
+def test_execute_smb_verify_connection_basic(client, smb_mock):
+    files_written = []
+    files_deleted = []
+
+    def store_file(*args):
+        files_written.append(args)
+
+    def delete_files(*args):
+        files_deleted.append(args)
+
+    smb_mock.storeFile = store_file
+    smb_mock.deleteFiles = delete_files
+
+    response = client.simulate_post("/execute", body=verify_smb_connection_body("ds-smb-with-pii"))
+    assert response.status == falcon.HTTP_200
+    assert len(files_written) == 1
+    assert files_written[0][0] == "share-name"
+    assert files_written[0][1] == "/.verify-smb-connection"
+    assert len(files_deleted) == 1
+    assert files_deleted[0][0] == "share-name"
+    assert files_deleted[0][1] == "/.verify-smb-connection"
