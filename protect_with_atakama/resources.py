@@ -199,11 +199,11 @@ class ExecuteResource:
             for (share, path), files in ip_labels.items():
                 try:
                     # TODO: check for existence of file/folder?
+                    temp_path = f"{path}/{os.urandom(16).hex()}"
                     ip_labels_path = f"{path}/.ip-labels"
                     log.debug("writing .ip-labels: %s", ip_labels_path)
-                    smb.write_file(
-                        share, ip_labels_path, json.dumps(files, indent=4).encode()
-                    )
+                    smb.write_file(share, temp_path, json.dumps(files, indent=4).encode())
+                    smb.rename(share, temp_path, ip_labels_path)
                 except:
                     error_count += 1
                     log.exception(

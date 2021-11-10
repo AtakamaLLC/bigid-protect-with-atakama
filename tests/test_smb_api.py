@@ -77,14 +77,13 @@ def test_smb_api_file_ops(smb_api):
     with smb_api:
         # successful connection
         smb_api.write_file("share", "/path/to/file", b"bytes")
-        assert smb_api.connection.storeFile.called_once()
-        assert smb_api.connection.storeFile.mock_calls[0][1][0] == "share"
-        assert smb_api.connection.storeFile.mock_calls[0][1][1] == "/path/to/file"
+        assert smb_api.connection.storeFile.called_once_with("share", "/path/to/file", b"bytes")
 
         smb_api.delete_file("share", "/path/to/file")
-        assert smb_api.connection.deleteFiles.called_once()
-        assert smb_api.connection.deleteFiles.mock_calls[0][1][0] == "share"
-        assert smb_api.connection.deleteFiles.mock_calls[0][1][1] == "/path/to/file"
+        assert smb_api.connection.deleteFiles.called_once_with("share", "/path/to/file")
+
+        smb_api.rename("share", "/path/to/file", "/new/path/to/file")
+        assert smb_api.connection.rename.called_once_with("share", "/path/to/file", "/new/path/to/file")
 
     # disconnected on exit
     assert smb_api._conn is None

@@ -54,3 +54,6 @@ class Smb:
 
     def delete_file(self, share: str, path: str) -> None:
         self.connection.deleteFiles(share, path)
+
+    def rename(self, share: str, old_path: str, new_path: str):
+        self.connection.rename(share, old_path, new_path)
