@@ -204,7 +204,9 @@ class ExecuteResource:
                         )
                         continue
 
-                    smb.atomic_write(share, path, ".ip-labels", json.dumps(files, indent=4).encode())
+                    smb.atomic_write(
+                        share, path, ".ip-labels", json.dumps(files, indent=4).encode()
+                    )
                 except:
                     error_count += 1
                     log.exception(
