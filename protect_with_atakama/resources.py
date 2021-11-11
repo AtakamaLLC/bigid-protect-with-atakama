@@ -204,13 +204,7 @@ class ExecuteResource:
                         )
                         continue
 
-                    temp_path = f"{path}/{os.urandom(16).hex()}"
-                    ip_labels_path = f"{path}/.ip-labels"
-                    log.debug("writing .ip-labels: %s", ip_labels_path)
-                    smb.write_file(
-                        share, temp_path, json.dumps(files, indent=4).encode()
-                    )
-                    smb.rename(share, temp_path, ip_labels_path)
+                    smb.atomic_write(share, path, ".ip-labels", json.dumps(files, indent=4).encode())
                 except:
                     error_count += 1
                     log.exception(

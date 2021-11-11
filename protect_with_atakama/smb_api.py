@@ -1,4 +1,5 @@
 import logging
+import os
 from socket import gethostname
 from tempfile import NamedTemporaryFile
 
@@ -58,6 +59,17 @@ class Smb:
 
     def rename(self, share: str, old_path: str, new_path: str) -> None:
         self.connection.rename(share, old_path, new_path)
+
+    def atomic_write(self, share: str, parent: str, file: str, data: bytes):
+        temp_path = f"{parent}/{os.urandom(16).hex()}"
+        target_path = f"{parent}/{file}"
+        log.debug("atomic_write %s", target_path)
+        try:
+            self.write_file(share, temp_path, data)
+            self.delete_file(share, target_path)
+            self.rename(share, temp_path, target_path)
+        finally:
+            self.delete_file(share, temp_path)
 
     def is_dir(self, share: str, path: str) -> bool:
         assert self.connection

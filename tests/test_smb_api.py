@@ -1,4 +1,3 @@
-from socket import gethostname
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -53,14 +52,11 @@ def test_smb_api_connect(smb_api):
     with smb_api:
         # successful connection
         assert smb_api._conn is not None
-        assert smb_api._conn.called_once_with(
-            smb_api._user, smb_api._password, gethostname(), smb_api._address, domain="", is_direct_tcp=True
-        )
-        assert smb_api._conn.connect.called_once_with(smb_api._address, 445)
+        smb_api._conn.connect.assert_called_once_with(smb_api._address, port=445)
         conn = smb_api._conn
 
     # disconnected on exit
-    assert conn.close.called_once()
+    conn.close.assert_called_once()
     assert smb_api._conn is None
 
 
@@ -86,13 +82,29 @@ def test_smb_api_file_ops(smb_api):
     with smb_api:
         # successful connection
         smb_api.write_file("share", "/path/to/file", b"bytes")
-        assert smb_api.connection.storeFile.called_once_with("share", "/path/to/file", b"bytes")
+        smb_api.connection.storeFile.assert_called_once()
+        assert smb_api.connection.storeFile.mock_calls[0][1][0] == "share"
+        assert smb_api.connection.storeFile.mock_calls[0][1][1] == "/path/to/file"
+        smb_api.connection.reset_mock()
 
         smb_api.delete_file("share", "/path/to/file")
-        assert smb_api.connection.deleteFiles.called_once_with("share", "/path/to/file")
+        smb_api.connection.deleteFiles.assert_called_once_with("share", "/path/to/file")
+        smb_api.connection.reset_mock()
 
         smb_api.rename("share", "/path/to/file", "/new/path/to/file")
-        assert smb_api.connection.rename.called_once_with("share", "/path/to/file", "/new/path/to/file")
+        smb_api.connection.rename.assert_called_once_with("share", "/path/to/file", "/new/path/to/file")
+        smb_api.connection.reset_mock()
+
+        smb_api.atomic_write("share", "/path/to", "file", b"data")
+        smb_api.connection.storeFile.assert_called_once()
+        assert smb_api.connection.storeFile.mock_calls[0][1][0] == "share"
+        assert len(smb_api.connection.deleteFiles.mock_calls) == 2
+        assert smb_api.connection.deleteFiles.mock_calls[0][1][0] == "share"
+        assert smb_api.connection.deleteFiles.mock_calls[0][1][1] == "/path/to/file"
+        assert smb_api.connection.deleteFiles.mock_calls[1][1][0] == "share"
+        smb_api.connection.rename.assert_called_once()
+        assert smb_api.connection.rename.mock_calls[0][1][0] == "share"
+        assert smb_api.connection.rename.mock_calls[0][1][2] == "/path/to/file"
 
         assert smb_api.is_dir("share", "/path/to/file")
         assert not smb_api.is_dir("share", "not-found")
