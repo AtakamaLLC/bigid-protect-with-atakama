@@ -77,6 +77,29 @@ class LogsResource:
             log.exception("failed to get logs - %s", repr(e))
 
 
+class IconResource:
+    """
+    Returns the app's icon
+    """
+
+    icon_path = "protect_with_atakama/assets/icon.svg"
+
+    def on_get(self, _req: falcon.Request, resp: falcon.Response):
+        """
+        Handle GET request
+        """
+        log.debug("on_get: icon")
+        try:
+            with open(self.icon_path, "rb") as f:
+                resp.data = f.read()
+                resp.content_type = "image/svg+xml"
+            log.debug("return icon: len=%s", len(resp.data))
+        except Exception as e:
+            resp.status = falcon.HTTP_500
+            resp.text = repr(e)
+            log.exception("failed to get icon - %s", repr(e))
+
+
 class ExecuteResource:
     """
     Executes an action defined in the manifest

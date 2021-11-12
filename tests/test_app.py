@@ -79,6 +79,16 @@ def test_logs(client):
             assert response.text == "log.txt.2\nlog.txt.1\nlog.txt\n"
 
 
+def test_icon(client):
+    response = client.simulate_get("/assets/icon")
+    assert response.status == falcon.HTTP_200
+    assert response.headers["content-type"] == "image/svg+xml"
+
+    with patch("protect_with_atakama.resources.IconResource.icon_path", "fnf"):
+        response = client.simulate_get("/assets/icon")
+        assert response.status == falcon.HTTP_500
+
+
 class MockBigID(BigID):
     def get(self, endpoint: str, params=None):
         if endpoint.startswith("ds-connections"):
