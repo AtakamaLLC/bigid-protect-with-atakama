@@ -176,7 +176,7 @@ class ExecuteResource:
         log.info("scan result rows: %s", ds_scan["totalRowsCounter"])
 
         label_regex = re.compile(api.action_params["label-regex"], re.I)
-        path_filter = api.action_params["path"]
+        path_filter = api.action_params["path"].lstrip("/")
         log.debug("filters: label-regex=%s path=%s", label_regex.pattern, path_filter)
         ds_scan_results = ds_scan.get("results", [])
         for f in ds_scan_results:
