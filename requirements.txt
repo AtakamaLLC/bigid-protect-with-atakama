@@ -1,12 +1,4 @@
-# test
-pytest
-coverage>=5
-pytest-cov
-pylint
-black
-pre-commit
-
-# run
 falcon
 pysmb
 requests
+waitress
