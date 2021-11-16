@@ -1,5 +1,5 @@
 {
-    "app_name": "Protect with Atakama",
+    "app_name": "Encrypt with Atakama",
     "description": "Multi-factor encryption for data at rest",
     "version": "1.0.0",
     "category": "protection",
@@ -11,7 +11,7 @@
         {
             "action_id": "protect-smb",
             "is_sync": true,
-            "description": "Protect labeled files stored on a SMB network share",
+            "description": "Encrypt labeled files stored on a SMB network share",
             "action_params": [
                 {
                     "param_name": "username",
@@ -44,7 +44,7 @@
                     "param_name": "label-regex",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "If specified, protect only files that have a matching label",
+                    "param_description": "If specified, encrypt only files that have a matching label",
                     "default_value": ".*",
                     "param_priority": "primary",
                     "is_mandatory": false
@@ -53,7 +53,7 @@
                     "param_name": "path",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "If specified, protect only files located in the given folder",
+                    "param_description": "If specified, encrypt only files located in the given folder",
                     "default_value": "/",
                     "param_priority": "primary",
                     "is_mandatory": false
