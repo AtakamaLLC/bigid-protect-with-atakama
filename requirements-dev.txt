@@ -1,0 +1,6 @@
+pytest
+coverage>=5
+pytest-cov
+pylint
+black
+pre-commit
