@@ -1,9 +1,11 @@
 import json
 import logging
 from enum import Enum, unique
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Generator
 
 import requests
+
+from protect_with_atakama.config import Config, DataSourceBase
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +52,7 @@ class BigID:
             "Content-Type": "application/json; charset=UTF-8",
             "Authorization": params["bigidToken"],
         }
+        self._config = Config(self.global_params["Config"])
         log.info("init: %s", self._action_name)
 
     @property
@@ -63,6 +66,49 @@ class BigID:
     @property
     def action_name(self) -> str:
         return self._action_name
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def data_sources(self) -> Generator[DataSourceBase, None, None]:
+        name_filter = self.action_params.get("Data Source Name", "")
+        label_filter = self.action_params.get("Label Filter", "")
+        for ds in self.config.data_sources:
+            if name_filter and name_filter != ds.name:
+                log.info("filtered out data source: %s (filter=%s)", ds.name, name_filter)
+                continue
+
+            if label_filter:
+                # action param overrides global param
+                ds.label_filter = label_filter
+
+            query = [{"field": "name", "value": ds.name, "operator": "equal"}]
+            params = {"filter": json.dumps(query)}
+            ds_data = self.get("ds-connections", params=params).json()["data"]
+            ds_count = ds_data["totalCount"]
+            if ds_count != 1:
+                # TODO: track errors
+                log.error("unexpected count (%s) for data source: %s", ds_count, ds.name)
+                continue
+
+            ds_info = ds_data["ds_connections"][0]
+            ds_type = ds_info["type"]
+            if ds_type != ds.kind:
+                # TODO: track errors
+                log.error("unexpected type (%s) for data source: %s", ds_type, ds.name)
+                continue
+
+            try:
+                ds.add_api_info(ds_info)
+            except:
+                # TODO: track errors
+                log.exception("failed to add data source api info: %s", ds_info)
+                continue
+
+            yield ds
+
+        # TODO: count data sources, error if 0
 
     def get(self, endpoint: str, params: Optional[Dict] = None) -> requests.Response:
         log.info("get: %s %s", endpoint, params)

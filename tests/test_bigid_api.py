@@ -5,14 +5,38 @@ import pytest
 
 from protect_with_atakama.bigid_api import BigID, Status
 
+config = {
+    "version": 1,
+    "data_sources": [
+        {
+            "name": "prod_file_share",
+            "kind": "smb",
+            "username": "user",
+            "password": "pass",
+            "label_filter": ".*",
+            "path_filter": ""
+        },
+        {
+            "name": "invalid: missing creds",
+            "kind": "smb",
+            "password": "pass",
+        },
+        {
+            "name": "invalid: not SMB",
+            "kind": "onedrive",
+        },
+
+    ]
+}
+
 valid_api_params = {
-    "actionName": "protect",
+    "actionName": "Encrypt",
     "bigidToken": "token98765",
     "bigidBaseUrl": "http://bigid-base-url",
     "updateResultCallback": "http://bigid-base-url/update/12345",
     "executionId": "execution-id-012",
     "tpaId": "tpa-id-345",
-    "globalParams": [{"paramName": "g-n1", "paramValue": "g-v1"}],
+    "globalParams": [{"paramName": "Config", "paramValue": config}],
     "actionParams": [{"paramName": "a-n1", "paramValue": "a-v1"}],
 }
 
@@ -39,10 +63,11 @@ def test_bigid_api_headers(bigid_api):
 
 
 def test_bigid_api_params(bigid_api):
-    assert bigid_api.global_params["g-n1"] == "g-v1"
+    assert bigid_api.global_params["Config"] == config
     assert bigid_api.action_params["a-n1"] == "a-v1"
     assert "a-n1" not in bigid_api.global_params.keys()
-    assert "g-n1" not in bigid_api.action_params.keys()
+    assert "Config" not in bigid_api.action_params.keys()
+    assert bigid_api.action_name == valid_api_params["actionName"]
 
 
 def test_bigid_api_progress(bigid_api):
@@ -88,3 +113,15 @@ def test_bigid_api_requests(bigid_api):
 
         bigid_api.put(resource, data)
         mock_requests.put.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, data=data)
+
+
+def test_bigid_api_config(bigid_api):
+    cfg = bigid_api.config
+    assert cfg._version == config["version"]
+    assert len(cfg.data_sources) == 1
+    ds = cfg.data_sources[0]
+    assert ds.name == config["data_sources"][0]["name"]
+    api_info = {"smbServer": "the-server", "domain": "the-domain"}
+    ds.add_api_info(api_info)
+    assert ds.server == api_info["smbServer"]
+    assert ds.domain == api_info["domain"]
