@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from protect_with_atakama.bigid_api import BigID, Status
+from protect_with_atakama.config import Config
 
 config = {
     "version": 1,
@@ -115,8 +116,8 @@ def test_bigid_api_requests(bigid_api):
         mock_requests.put.assert_called_once_with(f"{base_url}{resource}", headers=bigid_api._headers, data=data)
 
 
-def test_bigid_api_config(bigid_api):
-    cfg = bigid_api.config
+def test_config():
+    cfg = Config(config)
     assert cfg._version == config["version"]
     assert len(cfg.data_sources) == 1
     ds = cfg.data_sources[0]

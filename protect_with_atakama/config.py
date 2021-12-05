@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import List
-
+from typing import List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +18,7 @@ class DataSourceBase:
 
 @dataclass
 class DataSourceSmb(DataSourceBase):
+    # TODO: repr
     username: str
     password: str
     server: str = ""
@@ -48,16 +48,25 @@ class Config:
 
     """
 
-    @property
-    def data_sources(self):
-        return self._data_sources
-
     def __init__(self, cfg: dict):
+        self._warnings: List[str] = []
         self._version: int = cfg["version"]
         self._data_sources: List[DataSourceBase] = []
         self._load_data_sources(cfg)
 
-    def _load_data_sources(self, cfg: dict):
+    @property
+    def data_sources(self) -> List[DataSourceBase]:
+        return self._data_sources
+
+    @property
+    def warnings(self) -> List[str]:
+        return self._warnings
+
+    def warn(self, warning: str) -> None:
+        self._warnings.append(warning)
+        log.warning(warning)
+
+    def _load_data_sources(self, cfg: dict) -> None:
         for ds in cfg["data_sources"]:
             kind = ds["kind"]
             if kind == "smb":
@@ -66,7 +75,7 @@ class Config:
                 # TODO: track errors
                 log.error("unsupported data source: %s", self._scrub_creds(ds))
 
-    def _add_smb_data_source(self, ds: dict):
+    def _add_smb_data_source(self, ds: dict) -> None:
         try:
             self._data_sources.append(
                 DataSourceSmb(
@@ -83,7 +92,7 @@ class Config:
             logging.exception("failed to parse data source: %s", self._scrub_creds(ds))
 
     @staticmethod
-    def _scrub_creds(ds: dict):
+    def _scrub_creds(ds: dict) -> None:
         for k in ["username", "password"]:
             if k in ds:
                 ds[k] = "********"

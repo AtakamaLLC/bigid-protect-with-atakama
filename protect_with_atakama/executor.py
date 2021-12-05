@@ -4,12 +4,12 @@ import os
 import pathlib
 import re
 from collections import defaultdict
-from typing import Dict, Any
+from typing import Dict, Any, Generator
 
 import falcon
 
 from protect_with_atakama.bigid_api import BigID
-from protect_with_atakama.config import DataSourceSmb, DataSourceBase
+from protect_with_atakama.config import DataSourceSmb, DataSourceBase, Config
 from protect_with_atakama.smb_api import Smb
 from protect_with_atakama.utils import ExecutionError
 
@@ -19,7 +19,8 @@ log = logging.getLogger(__name__)
 class Executor:
 
     def __init__(self, params: dict):
-        self._api = BigID(params)
+        self._api: BigID = BigID(params)
+        self._config: Config = Config(self._api.global_params["Config"])
 
     def execute(self) -> str:
         if self._api.action_name == "Encrypt":
@@ -27,26 +28,68 @@ class Executor:
         elif self._api.action_name == "Verify Config":
             self._verify_config()
         else:
-            raise ExecutionError(
-                falcon.HTTP_400,
-                f"unrecognized action name: {self._api.action_name}",
-            )
+            self._config.warn(f"unrecognized action name: {self._api.action_name}")
+
+        if self._config.warnings:
+            text = "\n".join(self._config.warnings)
+            raise ExecutionError(falcon.HTTP_400, text)
 
         return self._api.get_progress_completed()
 
-    def _verify_config(self):
-        for ds in self._api.data_sources():
-            ds: DataSourceSmb
+    def _data_sources(self) -> Generator[DataSourceBase, None, None]:
+        name_filter = self._api.action_params.get("Data Source Name", "")
+        label_filter = self._api.action_params.get("Label Filter", "")
+        data_source_count = 0
 
-            # TODO: handle other kinds
-            # TODO: try/except/record error/continue
-            if ds.kind == "smb":
-                # TODO: need param? get from api? get from list-shares?
-                share = "share-name" #api.action_params["share"]
-                with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
-                    filename = os.urandom(16).hex()
-                    smb.write_file(share, filename, b"verify-smb-connection")
-                    smb.delete_file(share, filename)
+        for ds in self._config.data_sources:
+            try:
+                if name_filter and name_filter != ds.name:
+                    log.info("filtered out data source: %s (filter=%s)", ds.name, name_filter)
+                    continue
+
+                if label_filter:
+                    # action param overrides global param
+                    ds.label_filter = label_filter
+
+                query = [{"field": "name", "value": ds.name, "operator": "equal"}]
+                params = {"filter": json.dumps(query)}
+                ds_data = self._api.get("ds-connections", params=params).json()["data"]
+                ds_count = ds_data["totalCount"]
+                if ds_count != 1:
+                    self._config.warn(f"unexpected count ({ds_count}) for data source: {ds.name}")
+                    continue
+
+                ds_info = ds_data["ds_connections"][0]
+                ds_type = ds_info["type"]
+                if ds_type != ds.kind:
+                    self._config.warn(f"unexpected type ({ds_type}) for data source: {ds.name}")
+                    continue
+
+                ds.add_api_info(ds_info)
+                data_source_count += 1
+                yield ds
+
+            except Exception as e:
+                self._config.warn(f"error processing data source: {ds} ex: {repr(e)}")
+
+        if data_source_count == 0:
+            self._config.warn("no data sources enumerated")
+
+    def _verify_config(self):
+        for ds in self._data_sources():
+            try:
+                if ds.kind == "smb":
+                    ds: DataSourceSmb
+                    # TODO: need param? get from api? get from list-shares?
+                    share = "share-name" #api.action_params["share"]
+                    with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
+                        filename = os.urandom(16).hex()
+                        smb.write_file(share, filename, b"verify-smb-connection")
+                        smb.delete_file(share, filename)
+                else:
+                    self._config.warn(f"unrecognized data source: {ds.kind}")
+            except Exception as e:
+                self._config.warn(f"error verifying data source: {ds} ex: {repr(e)}")
 
     def _get_ip_labels(self, ds: DataSourceBase) -> Dict[tuple, Any]:
         ip_labels: Dict[tuple, Any] = defaultdict(lambda: {"files": {}})
@@ -57,6 +100,8 @@ class Executor:
         path_filter = ds.path_filter.lstrip("/")
         log.debug("filters: label=%s path=%s", label_filter.pattern, path_filter)
         ds_scan_results = ds_scan.get("results", [])
+        log.debug("scan res: %s", ds_scan_results)
+
         for f in ds_scan_results:
             try:
                 log.debug("processing: %s", f)
@@ -67,12 +112,12 @@ class Executor:
                     continue
 
                 full = pathlib.Path(f["fullObjectName"])
-                try:
-                    if path_filter:
+                if path_filter:
+                    try:
                         full.relative_to(path_filter)
-                except ValueError:
-                    log.debug("filtered out file, path=%s", full)
-                    continue
+                    except ValueError:
+                        log.debug("filtered out file, path=%s", full)
+                        continue
 
                 share = f["containerName"]
                 parent = (share, str(full.relative_to(share).parent).replace("\\", "/"))
@@ -85,43 +130,27 @@ class Executor:
         return ip_labels
 
     def _write_ip_labels(self) -> None:
-        error_count = 0
-        ip_labels_count = 0
-        data_source_count = 0
+        for ds in self._data_sources():
+            try:
+                ip_labels = self._get_ip_labels(ds)
+                if not ip_labels:
+                    log.warning("no ip-labels to write for data source: %s", ds.name)
+                    continue
 
-        for ds in self._api.data_sources():
-            data_source_count += 1
+                ds: DataSourceSmb
+                with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
+                    for (share, path), files in ip_labels.items():
+                        try:
+                            if not smb.is_dir(share, path):
+                                log.warning(
+                                    "path not found, skipping - ds=%s share=%s path=%s", ds.name, share, path
+                                )
+                                continue
 
-            ip_labels = self._get_ip_labels(ds)
-            if not ip_labels:
-                log.warning("no ip-labels to write for data source: %s", ds.name)
-                continue
-
-            ds: DataSourceSmb
-            with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
-                for (share, path), files in ip_labels.items():
-                    try:
-                        if not smb.is_dir(share, path):
-                            log.warning(
-                                "path not found, skipping - ds=%s share=%s path=%s", ds.name, share, path
+                            smb.atomic_write(
+                                share, path, ".ip-labels", json.dumps(files, indent=4).encode()
                             )
-                            continue
-
-                        smb.atomic_write(
-                            share, path, ".ip-labels", json.dumps(files, indent=4).encode()
-                        )
-                        ip_labels_count += 1
-                    except:
-                        error_count += 1
-                        log.exception(
-                            "failed to write .ip-labels: ds=%s share=%s path=%s", ds.name, share, path
-                        )
-
-        if not data_source_count:
-            raise ExecutionError(falcon.HTTP_400, "No data sources processed")
-
-        if error_count:
-            raise ExecutionError(
-                falcon.HTTP_400,
-                f"Failed to write {error_count} of {ip_labels_count} files",
-            )
+                        except Exception as e:
+                            self._config.warn(f"failed to write .ip-labels: ds={ds} share={share} path={path}")
+            except Exception as e:
+                self._config.warn(f"failed to write .ip-labels for data source: ds={ds}")
