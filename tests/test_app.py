@@ -162,7 +162,8 @@ class MockBigID(BigID):
                     "ds_connections": [
                         {
                             "type": "smb",
-                            "smbServer": "some-server"
+                            "smbServer": "some-server",
+                            "sharedResource": "share-name",
                         }
                     ]
                 }
@@ -252,6 +253,10 @@ def test_execute_encrypt_basic(client, smb_mock):
     response = client.simulate_post("/execute", body=encrypt_body("ds-smb-malformed"))
     assert response.status == falcon.HTTP_400
     assert not smb_mock.files_written
+
+    with patch.object(smb_mock, "connect", side_effect=Exception):
+        response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400
 
     # success, but nothing is labeled - no .ip-labels written
     response = client.simulate_post("/execute", body=encrypt_body("ds-smb-no-pii"))
@@ -349,6 +354,7 @@ def test_execute_errors(client):
 
 @patch("protect_with_atakama.executor.BigID", MockBigID)
 def test_execute_verify_basic(client, smb_mock):
+    # success
     response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
     assert len(smb_mock.files_written) == 1
@@ -357,3 +363,8 @@ def test_execute_verify_basic(client, smb_mock):
     assert len(smb_mock.files_deleted) == 1
     assert smb_mock.files_deleted[0][0] == "share-name"
     assert smb_mock.files_deleted[0][1] == smb_mock.files_written[0][1]
+
+    with patch.object(smb_mock, "storeFile", side_effect=Exception):
+        response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400
+

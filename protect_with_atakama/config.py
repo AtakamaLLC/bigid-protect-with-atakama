@@ -18,15 +18,20 @@ class DataSourceBase:
 
 @dataclass
 class DataSourceSmb(DataSourceBase):
-    # TODO: repr
     username: str
     password: str
     server: str = ""
+    shares: str = ""
     domain: str = ""
 
     def add_api_info(self, info: dict) -> None:
         self.server = info["smbServer"]
+        self.shares = info.get("sharedResource", "")
         self.domain = info.get("domain", "")
+
+    def __repr__(self):
+        kws = [f"{key}={value!r}" for key, value in self.__dict__.items() if key not in ("username", "password")]
+        return "{}({})".format(type(self).__name__, ", ".join(kws))
 
 
 class Config:
@@ -68,28 +73,24 @@ class Config:
 
     def _load_data_sources(self, cfg: dict) -> None:
         for ds in cfg["data_sources"]:
-            kind = ds["kind"]
-            if kind == "smb":
-                self._add_smb_data_source(ds)
-            else:
-                # TODO: track errors
-                log.error("unsupported data source: %s", self._scrub_creds(ds))
+            try:
+                kind = ds["kind"]
+                if kind == "smb":
+                    self._data_sources.append(
+                        DataSourceSmb(
+                            name=ds["name"],
+                            kind=kind,
+                            label_filter=ds.get("label_filter", ".*"),
+                            path_filter=ds.get("path_filter", ""),
+                            username=ds["username"],
+                            password=ds["password"]
+                        )
+                    )
+                else:
+                    self.warn(f"unsupported data source: {self._scrub_creds(ds)}")
 
-    def _add_smb_data_source(self, ds: dict) -> None:
-        try:
-            self._data_sources.append(
-                DataSourceSmb(
-                    name=ds["name"],
-                    kind="smb",
-                    label_filter=ds.get("label_filter", ".*"),
-                    path_filter=ds.get("path_filter", ""),
-                    username=ds["username"],
-                    password=ds["password"]
-                )
-            )
-        except Exception as e:
-            # TODO: track errors
-            logging.exception("failed to parse data source: %s", self._scrub_creds(ds))
+            except Exception as e:
+                self.warn(f"failed to parse data source: {self._scrub_creds(ds)} ex: {repr(e)}")
 
     @staticmethod
     def _scrub_creds(ds: dict) -> None:

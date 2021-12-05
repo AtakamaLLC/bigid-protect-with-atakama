@@ -79,15 +79,12 @@ class Executor:
         for ds in self._data_sources():
             try:
                 if ds.kind == "smb":
+                    # TODO: handle multiple shares, list shares if needed
                     ds: DataSourceSmb
-                    # TODO: need param? get from api? get from list-shares?
-                    share = "share-name" #api.action_params["share"]
                     with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
                         filename = os.urandom(16).hex()
-                        smb.write_file(share, filename, b"verify-smb-connection")
-                        smb.delete_file(share, filename)
-                else:
-                    self._config.warn(f"unrecognized data source: {ds.kind}")
+                        smb.write_file(ds.shares, filename, b"verify-smb-connection")
+                        smb.delete_file(ds.shares, filename)
             except Exception as e:
                 self._config.warn(f"error verifying data source: {ds} ex: {repr(e)}")
 
