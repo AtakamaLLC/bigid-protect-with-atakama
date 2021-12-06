@@ -98,7 +98,9 @@ class ExecuteResource:
     Executes an action defined in the manifest
     """
 
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
+    def on_post(
+        self, req: falcon.Request, resp: falcon.Response
+    ):  # pylint: disable=no-self-use
         """
         Handle POST request
         """

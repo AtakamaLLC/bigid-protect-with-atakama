@@ -82,4 +82,6 @@ class Smb:
 
     def list_shares(self):
         assert self.connection
-        return [share.name for share in self.connection.listShares() if not share.isSpecial]
+        return [
+            share.name for share in self.connection.listShares() if not share.isSpecial
+        ]

@@ -17,12 +17,18 @@ log = logging.getLogger(__name__)
 
 
 class Executor:
+    """
+    Encapsulates action execution
+    """
 
     def __init__(self, params: dict):
         self._api: BigID = BigID(params)
         self._config: Config = Config(self._api.global_params["Config"])
 
     def execute(self) -> str:
+        """
+        Execute the action specified by input params
+        """
         if self._api.action_name == "Encrypt":
             self._write_ip_labels()
         elif self._api.action_name == "Verify Config":
@@ -44,7 +50,9 @@ class Executor:
         for ds in self._config.data_sources:
             try:
                 if name_filter and name_filter != ds.name:
-                    log.info("filtered out data source: %s (filter=%s)", ds.name, name_filter)
+                    log.info(
+                        "filtered out data source: %s (filter=%s)", ds.name, name_filter
+                    )
                     continue
 
                 if label_filter:
@@ -56,13 +64,17 @@ class Executor:
                 ds_data = self._api.get("ds-connections", params=params).json()["data"]
                 ds_count = ds_data["totalCount"]
                 if ds_count != 1:
-                    self._config.warn(f"unexpected count ({ds_count}) for data source: {ds.name}")
+                    self._config.warn(
+                        f"unexpected count ({ds_count}) for data source: {ds.name}"
+                    )
                     continue
 
                 ds_info = ds_data["ds_connections"][0]
                 ds_type = ds_info["type"]
                 if ds_type != ds.kind:
-                    self._config.warn(f"unexpected type ({ds_type}) for data source: {ds.name}")
+                    self._config.warn(
+                        f"unexpected type ({ds_type}) for data source: {ds.name}"
+                    )
                     continue
 
                 ds.add_api_info(ds_info)
@@ -95,7 +107,9 @@ class Executor:
                     smb.delete_file(share, filename)
                     log.info("verified share %s for data source %s", share, ds)
                 except Exception as ex:
-                    self._config.warn(f"failed to verify share {share} for data source {ds} - ex: {repr(ex)}")
+                    self._config.warn(
+                        f"failed to verify share {share} for data source {ds} - ex: {repr(ex)}"
+                    )
 
     def _get_ip_labels(self, ds: DataSourceBase) -> Dict[tuple, Any]:
         ip_labels: Dict[tuple, Any] = defaultdict(lambda: {"files": {}})
@@ -149,14 +163,24 @@ class Executor:
                         try:
                             if not smb.is_dir(share, path):
                                 log.warning(
-                                    "path not found, skipping - ds=%s share=%s path=%s", ds.name, share, path
+                                    "path not found, skipping - ds=%s share=%s path=%s",
+                                    ds.name,
+                                    share,
+                                    path,
                                 )
                                 continue
 
                             smb.atomic_write(
-                                share, path, ".ip-labels", json.dumps(files, indent=4).encode()
+                                share,
+                                path,
+                                ".ip-labels",
+                                json.dumps(files, indent=4).encode(),
                             )
                         except Exception as e:
-                            self._config.warn(f"failed to write .ip-labels: ds={ds} share={share} path={path}")
+                            self._config.warn(
+                                f"failed to write .ip-labels: ds={ds} share={share} path={path} ex={e}"
+                            )
             except Exception as e:
-                self._config.warn(f"failed to write .ip-labels for data source: ds={ds}")
+                self._config.warn(
+                    f"failed to write .ip-labels for data source: ds={ds} ex={e}"
+                )

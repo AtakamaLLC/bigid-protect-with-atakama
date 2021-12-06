@@ -19,6 +19,10 @@ class DataSourceBase:
 
 @dataclass
 class DataSourceSmb(DataSourceBase):
+    """
+    SMB data source metadata
+    """
+
     username: str
     password: str
     server: str = ""
@@ -31,8 +35,13 @@ class DataSourceSmb(DataSourceBase):
         self.domain = info.get("domain", "")
 
     def __repr__(self):
-        kws = [f"{key}={value!r}" for key, value in self.__dict__.items() if key not in ("username", "password")]
-        return "{}({})".format(type(self).__name__, ", ".join(kws))
+        kws = [
+            f"{key}={value!r}"
+            for key, value in self.__dict__.items()
+            if key not in ("username", "password")
+        ]
+        kws_str = ", ".join(kws)
+        return f"{type(self).__name__}({kws_str})"
 
 
 class Config:
@@ -86,14 +95,16 @@ class Config:
                             label_filter=ds.get("label_filter", ".*"),
                             path_filter=ds.get("path_filter", ""),
                             username=ds["username"],
-                            password=ds["password"]
+                            password=ds["password"],
                         )
                     )
                 else:
                     self.warn(f"unsupported data source: {self._scrub_creds(ds)}")
 
             except Exception as e:
-                self.warn(f"failed to parse data source: {self._scrub_creds(ds)} ex: {repr(e)}")
+                self.warn(
+                    f"failed to parse data source: {self._scrub_creds(ds)} ex: {repr(e)}"
+                )
 
     @staticmethod
     def _scrub_creds(ds: dict) -> None:
