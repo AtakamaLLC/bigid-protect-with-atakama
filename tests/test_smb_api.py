@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -18,6 +19,13 @@ def fixture_smb_api():
             return ["something"]
 
         mock_conn.listPath = list_path
+
+        @dataclass
+        class MockShare:
+            name: str
+            isSpecial: bool
+
+        mock_conn.listShares = lambda: [MockShare("s1", False), MockShare("IPC$", True)]
 
         mock_conn_cls.return_value = mock_conn
         yield Smb("user", "password", "1.2.3.4")
@@ -108,6 +116,10 @@ def test_smb_api_file_ops(smb_api):
 
         assert smb_api.is_dir("share", "/path/to/file")
         assert not smb_api.is_dir("share", "not-found")
+
+        shares = smb_api.list_shares()
+        assert len(shares) == 1
+        assert shares[0] == "s1"
 
     # disconnected on exit
     assert smb_api._conn is None

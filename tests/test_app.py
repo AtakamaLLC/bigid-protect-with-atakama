@@ -40,10 +40,17 @@ def fixture_smb_mock():
                 raise OperationFailure("msg", "sub-msg")
             return ["something"]
 
+        def list_shares():
+            share = MagicMock()
+            share.name = "share-name"
+            share.isSpecial = False
+            return [share]
+
         mock_conn.storeFile = store_file
         mock_conn.rename = rename
         mock_conn.deleteFiles = delete_files
         mock_conn.listPath = list_path
+        mock_conn.listShares = list_shares
 
         mock_conn_cls.return_value = mock_conn
         yield mock_conn
@@ -163,7 +170,6 @@ class MockBigID(BigID):
                         {
                             "type": "smb",
                             "smbServer": "some-server",
-                            "sharedResource": "share-name",
                         }
                     ]
                 }
@@ -177,7 +183,7 @@ class MockBigID(BigID):
 
 
 def encrypt_body(test_case: str, label_regex: str = ".*", ds_name: str = "", path: str = ""):
-    config = {
+    config = json.dumps({
         "version": 1,
         "data_sources": [
             {
@@ -189,7 +195,7 @@ def encrypt_body(test_case: str, label_regex: str = ".*", ds_name: str = "", pat
                 "path_filter": path,
             },
         ]
-    }
+    })
 
     return json.dumps({
         "actionName": "Encrypt",
@@ -210,7 +216,7 @@ def encrypt_body(test_case: str, label_regex: str = ".*", ds_name: str = "", pat
 
 
 def verify_body(test_case: str, action="Verify Config"):
-    config = {
+    config = json.dumps({
         "version": 1,
         "data_sources": [
             {
@@ -222,7 +228,7 @@ def verify_body(test_case: str, action="Verify Config"):
                 "path_filter": "",
             },
         ]
-    }
+    })
 
     return json.dumps({
         "actionName": action,
@@ -364,7 +370,12 @@ def test_execute_verify_basic(client, smb_mock):
     assert smb_mock.files_deleted[0][0] == "share-name"
     assert smb_mock.files_deleted[0][1] == smb_mock.files_written[0][1]
 
+    # write fails
     with patch.object(smb_mock, "storeFile", side_effect=Exception):
         response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
         assert response.status == falcon.HTTP_400
 
+    # connect fails
+    with patch.object(smb_mock, "connect", side_effect=Exception):
+        response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400

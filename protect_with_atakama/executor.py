@@ -78,15 +78,24 @@ class Executor:
     def _verify_config(self):
         for ds in self._data_sources():
             try:
-                if ds.kind == "smb":
-                    # TODO: handle multiple shares, list shares if needed
-                    ds: DataSourceSmb
-                    with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
-                        filename = os.urandom(16).hex()
-                        smb.write_file(ds.shares, filename, b"verify-smb-connection")
-                        smb.delete_file(ds.shares, filename)
+                if isinstance(ds, DataSourceSmb):
+                    self._verify_smb(ds)
             except Exception as e:
                 self._config.warn(f"error verifying data source: {ds} ex: {repr(e)}")
+
+    def _verify_smb(self, ds: DataSourceSmb):
+        with Smb(ds.username, ds.password, ds.server, ds.domain) as smb:
+            if len(ds.shares) == 1 and ds.shares[0] == "":
+                ds.shares = smb.list_shares()
+
+            for share in ds.shares:
+                try:
+                    filename = os.urandom(16).hex()
+                    smb.write_file(share, filename, b"verify-smb-connection")
+                    smb.delete_file(share, filename)
+                    log.info("verified share %s for data source %s", share, ds)
+                except Exception as ex:
+                    self._config.warn(f"failed to verify share {share} for data source {ds} - ex: {repr(ex)}")
 
     def _get_ip_labels(self, ds: DataSourceBase) -> Dict[tuple, Any]:
         ip_labels: Dict[tuple, Any] = defaultdict(lambda: {"files": {}})

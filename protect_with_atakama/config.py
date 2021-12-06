@@ -1,6 +1,7 @@
+import json
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 log = logging.getLogger(__name__)
 
@@ -21,12 +22,12 @@ class DataSourceSmb(DataSourceBase):
     username: str
     password: str
     server: str = ""
-    shares: str = ""
     domain: str = ""
+    shares: List[str] = None
 
     def add_api_info(self, info: dict) -> None:
         self.server = info["smbServer"]
-        self.shares = info.get("sharedResource", "")
+        self.shares = info.get("sharedResource", "").split(",")
         self.domain = info.get("domain", "")
 
     def __repr__(self):
@@ -53,11 +54,13 @@ class Config:
 
     """
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: str):
         self._warnings: List[str] = []
-        self._version: int = cfg["version"]
         self._data_sources: List[DataSourceBase] = []
-        self._load_data_sources(cfg)
+
+        cfg_dict: dict = json.loads(cfg)
+        self._version: int = cfg_dict["version"]
+        self._load_data_sources(cfg_dict)
 
     @property
     def data_sources(self) -> List[DataSourceBase]:

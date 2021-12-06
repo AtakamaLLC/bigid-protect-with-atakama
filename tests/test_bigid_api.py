@@ -4,9 +4,9 @@ from unittest.mock import patch
 import pytest
 
 from protect_with_atakama.bigid_api import BigID, Status
-from protect_with_atakama.config import Config
+from protect_with_atakama.config import Config, DataSourceSmb
 
-config = {
+config = json.dumps({
     "version": 1,
     "data_sources": [
         {
@@ -28,7 +28,7 @@ config = {
         },
 
     ]
-}
+})
 
 valid_api_params = {
     "actionName": "Encrypt",
@@ -118,10 +118,12 @@ def test_bigid_api_requests(bigid_api):
 
 def test_config():
     cfg = Config(config)
-    assert cfg._version == config["version"]
+    cfg_dict = json.loads(config)
+    assert cfg._version == cfg_dict["version"]
     assert len(cfg.data_sources) == 1
     ds = cfg.data_sources[0]
-    assert ds.name == config["data_sources"][0]["name"]
+    assert ds.name == cfg_dict["data_sources"][0]["name"]
+    assert isinstance(ds, DataSourceSmb)
     api_info = {"smbServer": "the-server", "domain": "the-domain"}
     ds.add_api_info(api_info)
     assert ds.server == api_info["smbServer"]
