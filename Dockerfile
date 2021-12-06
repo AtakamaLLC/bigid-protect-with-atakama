@@ -1,4 +1,4 @@
-FROM python:3.6-slim-buster
+FROM python:3.9-slim-buster
 
 COPY /protect_with_atakama /protect_with_atakama
 COPY ./requirements.txt /
