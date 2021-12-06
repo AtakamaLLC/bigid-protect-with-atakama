@@ -106,7 +106,7 @@ class Executor:
         path_filter = ds.path_filter.lstrip("/")
         log.debug("filters: label=%s path=%s", label_filter.pattern, path_filter)
         ds_scan_results = ds_scan.get("results", [])
-        log.debug("scan res: %s", ds_scan_results)
+        log.debug("scan result count: %s", len(ds_scan_results))
 
         for f in ds_scan_results:
             try:
