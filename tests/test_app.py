@@ -98,7 +98,9 @@ def test_icon(client):
 
 class MockBigID(BigID):
     def get(self, endpoint: str, params=None):
-        if endpoint.startswith("ds-connections"):
+        if endpoint == "ds-connections-types":
+            return self._mock_response("")
+        elif endpoint.startswith("ds-connections"):
             return self._get_data_source_info()
         elif endpoint.startswith("data-catalog"):
             return self._get_scan_results()
@@ -175,10 +177,10 @@ class MockBigID(BigID):
                 }
             })
 
-    @staticmethod
-    def _mock_response(resp):
+    def _mock_response(self, resp):
         ret = MagicMock()
         ret.json = lambda: resp
+        ret.status_code = 500 if "bad-token" in self._headers.values() else 200
         return ret
 
 
@@ -215,7 +217,7 @@ def encrypt_body(test_case: str, label_regex: str = ".*", ds_name: str = "", pat
     })
 
 
-def verify_body(test_case: str, action="Verify Config"):
+def verify_body(test_case: str, action="Verify Config", token="token12345"):
     config = json.dumps({
         "version": 1,
         "data_sources": [
@@ -232,7 +234,7 @@ def verify_body(test_case: str, action="Verify Config"):
 
     return json.dumps({
         "actionName": action,
-        "bigidToken": "token12345",
+        "bigidToken": token,
         "bigidBaseUrl": "http://bigid-base-url",
         "updateResultCallback": "http://bigid-base-url/update/01289",
         "executionId": "01289",
@@ -351,6 +353,10 @@ def test_execute_encrypt_write_fails(client, smb_mock):
 def test_execute_errors(client):
     # unknown action
     response = client.simulate_post("/execute", body=verify_body("ds-name", "unknown-action"))
+    assert response.status == falcon.HTTP_400
+
+    # bad token
+    response = client.simulate_post("/execute", body=verify_body("ds-name", "unknown-action", "bad-token"))
     assert response.status == falcon.HTTP_400
 
     # bad input

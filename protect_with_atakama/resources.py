@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 
@@ -61,7 +62,7 @@ class LogsResource:
             log_files.sort(reverse=True)
             for f in log_files:
                 with open(os.path.join(LOG_DIR, f), "r", encoding="utf-8") as log_file:
-                    all_logs += log_file.read()
+                    all_logs += html.escape(log_file.read())
             resp.text = all_logs
             log.debug("return logs: len=%s", len(resp.text))
         except Exception as e:

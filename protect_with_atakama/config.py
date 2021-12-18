@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 from dataclasses import dataclass
@@ -60,8 +61,9 @@ class Config:
             ...
         ]
     }
-
     """
+
+    max_warnings: int = 100
 
     def __init__(self, cfg: str):
         self._warnings: List[str] = []
@@ -80,8 +82,14 @@ class Config:
         return self._warnings
 
     def warn(self, warning: str) -> None:
-        self._warnings.append(warning)
-        log.warning(warning)
+        caller = inspect.currentframe().f_back.f_code
+        log.warning("%s:%s %s", caller.co_name, caller.co_firstlineno, warning)
+        if len(self._warnings) < self.max_warnings:
+            self._warnings.append(warning)
+        if len(self._warnings) == self.max_warnings:
+            error_limit = f"error limit reached: {self.max_warnings}"
+            self._warnings.append(error_limit)
+            log.warning(error_limit)
 
     def _load_data_sources(self, cfg: dict) -> None:
         for ds in cfg["data_sources"]:

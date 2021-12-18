@@ -128,3 +128,8 @@ def test_config():
     ds.add_api_info(api_info)
     assert ds.server == api_info["smbServer"]
     assert ds.domain == api_info["domain"]
+
+    for i in range(cfg.max_warnings + 10):
+        cfg.warn(f"warning {i}")
+
+    assert len(cfg.warnings) == cfg.max_warnings + 1

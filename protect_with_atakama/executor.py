@@ -29,6 +29,8 @@ class Executor:
         """
         Execute the action specified by input params
         """
+        self._validate_token()
+
         if self._api.action_name == "Encrypt":
             self._write_ip_labels()
         elif self._api.action_name == "Verify Config":
@@ -41,6 +43,11 @@ class Executor:
             raise ExecutionError(falcon.HTTP_400, text)
 
         return self._api.get_progress_completed()
+
+    def _validate_token(self):
+        resp = self._api.get("ds-connections-types")
+        if resp.status_code != 200:
+            raise ExecutionError(falcon.HTTP_400, "Token validation failed")
 
     def _data_sources(self) -> Generator[DataSourceBase, None, None]:
         name_filter = self._api.action_params.get("Data Source Name", "")
