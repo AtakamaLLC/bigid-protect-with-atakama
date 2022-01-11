@@ -79,3 +79,9 @@ class Smb:
             return True
         except OperationFailure:
             return False
+
+    def list_shares(self):
+        assert self.connection
+        return [
+            share.name for share in self.connection.listShares() if not share.isSpecial
+        ]

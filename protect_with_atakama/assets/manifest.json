@@ -6,102 +6,48 @@
     "license_type": "FREE",
     "vendor": "Atakama",
     "license_verification_key": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiUHJvdGVjdCB3aXRoIEF0YWthbWEiLCJjYXRlZ29yeSI6IlByb3RlY3Rpb24iLCJsaWNlbnNlVHlwZSI6ImZyZWUiLCJ2ZW5kb3IiOiJBdGFrYW1hIiwidmVyc2lvbiI6IjEuMCIsInRva2VuIjoiYXBwTWFya2V0cGxhY2UifQ.U4BJF4kNPt2IiAD3V2WI8eVD_jH2caXdBAzkXQaSgnc2czRZgH0YqeerhjFYlJ4JFCk6DyvrRljzai23Xyh463X-HQllUkxTXVe1KbqsbYwbwUGM7eTcknDyK2e97Coih-cJdxpv1wLsFG-vIr_RktRxPoi8ArH9T7AEeHCRW-N6DzBP1diCvmYlAqCK0u6DCimqqToCEhRYA56NC9EndtoDhzrXKgNwmf-NFWp5WEWdNLGIX2ynTY3EgmaZyZUW8hjekvH-grHdW_Rvf2UqmI0mN-n3QOZz1TH23BKXT9KXUIItPII9NU9Vh7GhBUuP0g0z8-QlYa-TK4BdTEbdIygwc_sW2IYr8q1rSqApKjvYFK-Lfck8wIUNrtUeeefVubcE-qyipFXh1ZEyd8s57O0QODuJt_O2B0XRq8Ai-0xxlYrYmPAXPIRVtdO7DbI_OMqswrfNSzAfRdDl8SO3EahwbDCz7FtUZejgP3EhjyFGLseAG_cMqAHyIEKBPg_E4CdXY4KD8dIwGOMOcMYebDul8u-VEd4zAMSoOtGa8ZJEkJSk70QYUGtADP8AWIR36RlX4j_CF_2qcb8NgOz1HSsvUN4DvS9pOR_a1KTC_sfZCILEZOsGUpz0ZyTIlnMQboHxHh_MxFXkpRskdnEhW4gN_rTXGoSaYzDDJF1jnNg",
-    "global_params": [],
+    "global_params": [
+        {
+            "param_name": "Config",
+            "param_type": "String",
+            "is_cleartext": false,
+            "param_description": "JSON string containing Data Source info, filter options, etc.",
+            "default_value": "",
+            "param_priority": "primary",
+            "is_mandatory": true
+        }
+    ],
     "actions": [
         {
-            "action_id": "protect-smb",
+            "action_id": "Encrypt",
             "is_sync": true,
-            "description": "Encrypt labeled files stored on a SMB network share",
+            "description": "Encrypt labeled files on selected Data Sources",
             "action_params": [
                 {
-                    "param_name": "username",
-                    "param_type": "String",
-                    "is_cleartext": false,
-                    "param_description": "SMB credentials: username",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "password",
-                    "param_type": "String",
-                    "is_cleartext": false,
-                    "param_description": "SMB credentials: password",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "data-source-name",
+                    "param_name": "Data Source Name",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "The name of the SMB data source, as defined in BigID",
+                    "param_description": "If specified, encrypt only this Data Source. Otherwise, encrypt all Data Sources specified in global Config.",
                     "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "label-regex",
-                    "param_type": "String",
-                    "is_cleartext": true,
-                    "param_description": "If specified, encrypt only files that have a matching label",
-                    "default_value": ".*",
                     "param_priority": "primary",
                     "is_mandatory": false
                 },
                 {
-                    "param_name": "path",
+                    "param_name": "Label Filter",
                     "param_type": "String",
                     "is_cleartext": true,
-                    "param_description": "If specified, encrypt only files located in the given folder",
-                    "default_value": "/",
+                    "param_description": "Regular expression. If specified, encrypt only files that have a matching label. Overrides the per-Data Source setting in global Config.",
+                    "default_value": "",
                     "param_priority": "primary",
                     "is_mandatory": false
                 }
             ]
         },
         {
-            "action_id": "verify-smb-connection",
+            "action_id": "Verify Config",
             "is_sync": true,
-            "description": "Check connectivity to SMB network share",
-            "action_params": [
-                {
-                    "param_name": "username",
-                    "param_type": "String",
-                    "is_cleartext": false,
-                    "param_description": "SMB credentials: username",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "password",
-                    "param_type": "String",
-                    "is_cleartext": false,
-                    "param_description": "SMB credentials: password",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "share",
-                    "param_type": "String",
-                    "is_cleartext": true,
-                    "param_description": "The name of the SMB share",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                },
-                {
-                    "param_name": "data-source-name",
-                    "param_type": "String",
-                    "is_cleartext": true,
-                    "param_description": "The name of the SMB data source, as defined in BigID",
-                    "default_value": "",
-                    "param_priority": "primary",
-                    "is_mandatory": true
-                }
-            ]
+            "description": "Check global Config validity.",
+            "action_params": []
         }
     ]
 }

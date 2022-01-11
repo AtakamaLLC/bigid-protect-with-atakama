@@ -40,10 +40,17 @@ def fixture_smb_mock():
                 raise OperationFailure("msg", "sub-msg")
             return ["something"]
 
+        def list_shares():
+            share = MagicMock()
+            share.name = "share-name"
+            share.isSpecial = False
+            return [share]
+
         mock_conn.storeFile = store_file
         mock_conn.rename = rename
         mock_conn.deleteFiles = delete_files
         mock_conn.listPath = list_path
+        mock_conn.listShares = list_shares
 
         mock_conn_cls.return_value = mock_conn
         yield mock_conn
@@ -91,18 +98,20 @@ def test_icon(client):
 
 class MockBigID(BigID):
     def get(self, endpoint: str, params=None):
-        if endpoint.startswith("ds-connections"):
+        if endpoint == "ds-connections-types":
+            return self._mock_response("")
+        elif endpoint.startswith("ds-connections"):
             return self._get_data_source_info()
         elif endpoint.startswith("data-catalog"):
             return self._get_scan_results()
 
     def _get_scan_results(self):
-        ds_name = self.action_params["data-source-name"]
-        if ds_name == "ds-smb-no-pii":
+        test_case = self.global_params["test-case"]
+        if test_case == "ds-smb-no-pii":
             return self._mock_response({
                 "totalRowsCounter": 0
             })
-        elif ds_name == "ds-smb-with-pii":
+        elif test_case == "ds-smb-with-pii":
             return self._mock_response({
                 "totalRowsCounter": 2,
                 "results": [
@@ -125,14 +134,14 @@ class MockBigID(BigID):
             })
 
     def _get_data_source_info(self):
-        ds_name = self.action_params["data-source-name"]
-        if ds_name == "ds-not-found":
+        test_case = self.global_params["test-case"]
+        if test_case == "ds-not-found":
             return self._mock_response({
                 "data": {
                     "totalCount": 0
                 }
             })
-        elif ds_name == "ds-unsupported":
+        elif test_case == "ds-unsupported":
             return self._mock_response({
                 "data": {
                     "totalCount": 1,
@@ -143,7 +152,7 @@ class MockBigID(BigID):
                     ]
                 }
             })
-        elif ds_name == "ds-smb-malformed":
+        elif test_case == "ds-smb-malformed":
             # missing smbServer
             return self._mock_response({
                 "data": {
@@ -155,85 +164,115 @@ class MockBigID(BigID):
                     ]
                 }
             })
-        elif ds_name in ("ds-smb-no-pii", "ds-smb-with-pii"):
+        elif test_case in ("ds-smb-no-pii", "ds-smb-with-pii"):
             return self._mock_response({
                 "data": {
                     "totalCount": 1,
                     "ds_connections": [
                         {
                             "type": "smb",
-                            "smbServer": "some-server"
+                            "smbServer": "some-server",
                         }
                     ]
                 }
             })
 
-    @staticmethod
-    def _mock_response(resp):
+    def _mock_response(self, resp):
         ret = MagicMock()
         ret.json = lambda: resp
+        ret.status_code = 500 if "bad-token" in self._headers.values() else 200
         return ret
 
 
-def protect_smb_body(ds_name: str, label_regex: str = ".*", path: str = ""):
+def encrypt_body(test_case: str, label_regex: str = ".*", ds_name: str = "", path: str = ""):
+    config = json.dumps({
+        "version": 1,
+        "data_sources": [
+            {
+                "name": "prod_file_share",
+                "kind": "smb",
+                "username": "user",
+                "password": "pass",
+                "label_filter": ".*",
+                "path_filter": path,
+            },
+        ]
+    })
+
     return json.dumps({
-        "actionName": "protect-smb",
+        "actionName": "Encrypt",
         "bigidToken": "token98765",
         "bigidBaseUrl": "http://bigid-base-url",
         "updateResultCallback": "http://bigid-base-url/update/12345",
         "executionId": "execution-id-012",
         "tpaId": "tpa-id-345",
-        "globalParams": [],
+        "globalParams": [
+            {"paramName": "Config", "paramValue": config},
+            {"paramName": "test-case", "paramValue": test_case},
+        ],
         "actionParams": [
-            {"paramName": "username", "paramValue": "user"},
-            {"paramName": "password", "paramValue": "secret"},
-            {"paramName": "data-source-name", "paramValue": ds_name},
-            {"paramName": "label-regex", "paramValue": label_regex},
-            {"paramName": "path", "paramValue": path},
+            {"paramName": "Label Filter", "paramValue": label_regex},
+            {"paramName": "Data Source Name", "paramValue": ds_name},
         ],
     })
 
 
-def verify_smb_connection_body(ds_name: str, action="verify-smb-connection"):
+def verify_body(test_case: str, action="Verify Config", token="token12345"):
+    config = json.dumps({
+        "version": 1,
+        "data_sources": [
+            {
+                "name": "prod_file_share",
+                "kind": "smb",
+                "username": "user",
+                "password": "pass",
+                "label_filter": ".*",
+                "path_filter": "",
+            },
+        ]
+    })
+
     return json.dumps({
         "actionName": action,
-        "bigidToken": "token12345",
+        "bigidToken": token,
         "bigidBaseUrl": "http://bigid-base-url",
         "updateResultCallback": "http://bigid-base-url/update/01289",
         "executionId": "01289",
         "tpaId": "tpa-id-345",
-        "globalParams": [],
-        "actionParams": [
-            {"paramName": "username", "paramValue": "user"},
-            {"paramName": "password", "paramValue": "secret"},
-            {"paramName": "data-source-name", "paramValue": ds_name},
-            {"paramName": "share", "paramValue": "share-name"},
+        "globalParams": [
+            {"paramName": "Config", "paramValue": config},
+            {"paramName": "test-case", "paramValue": test_case},
         ],
+        "actionParams": [],
     })
 
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_protect_basic(client, smb_mock):
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_encrypt_basic(client, smb_mock):
     # various error conditions - no .ip-labels written
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-not-found"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-not-found"))
     assert response.status == falcon.HTTP_400
     assert not smb_mock.files_written
 
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-unsupported"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-unsupported"))
     assert response.status == falcon.HTTP_400
     assert not smb_mock.files_written
 
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-malformed"))
-    assert response.status == falcon.HTTP_500
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-malformed"))
+    assert response.status == falcon.HTTP_400
     assert not smb_mock.files_written
+
+    with patch.object(smb_mock, "connect", side_effect=Exception):
+        response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400
 
     # success, but nothing is labeled - no .ip-labels written
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-no-pii"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-no-pii"))
     assert response.status == falcon.HTTP_200
     assert not smb_mock.files_written
 
     # success - 2 .ip-labels files
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
     assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share"
@@ -242,15 +281,15 @@ def test_execute_smb_protect_basic(client, smb_mock):
     assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
 
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_protect_label_filter(client, smb_mock):
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_encrypt_label_filter(client, smb_mock):
     # label filter excludes label-1, label-2
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", label_regex="xyz"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", label_regex="xyz"))
     assert response.status == falcon.HTTP_200
     assert not smb_mock.files_written
 
     # label filter includes label-2
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", label_regex="label-2"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", label_regex="label-2"))
     assert response.status == falcon.HTTP_200
     assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share"
@@ -259,15 +298,15 @@ def test_execute_smb_protect_label_filter(client, smb_mock):
     assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
 
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_protect_path_filter(client, smb_mock):
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_encrypt_path_filter(client, smb_mock):
     # path filter excludes share/path/to/file.txt
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share2/path"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", path="share2/path"))
     assert response.status == falcon.HTTP_200
     assert not smb_mock.files_written
 
     # path filter includes share/path/to/file.txt
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii", path="share/path"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", path="share/path"))
     assert response.status == falcon.HTTP_200
     assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share"
@@ -276,8 +315,25 @@ def test_execute_smb_protect_path_filter(client, smb_mock):
     assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
 
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_protect_write_fails(client, smb_mock):
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_encrypt_data_source_filter(client, smb_mock):
+    # data source filter excludes all data sources
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", ds_name="some_other_share"))
+    assert response.status == falcon.HTTP_400
+    assert not smb_mock.files_written
+
+    # data source filter includes 1 data source
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii", ds_name="prod_file_share"))
+    assert response.status == falcon.HTTP_200
+    assert len(smb_mock.files_written) == 1
+    assert smb_mock.files_written[0][0] == "share"
+    assert smb_mock.files_renamed[0][0] == "share"
+    assert smb_mock.files_renamed[0][1] == smb_mock.files_written[0][1]
+    assert smb_mock.files_renamed[0][2] == "path/to/.ip-labels"
+
+
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_encrypt_write_fails(client, smb_mock):
     store_file_count = 0
 
     def store_file(*args):
@@ -289,19 +345,29 @@ def test_execute_smb_protect_write_fails(client, smb_mock):
 
     smb_mock.storeFile = store_file
 
-    response = client.simulate_post("/execute", body=protect_smb_body("ds-smb-with-pii"))
+    response = client.simulate_post("/execute", body=encrypt_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_400
 
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_unknown_action(client):
-    response = client.simulate_post("/execute", body=verify_smb_connection_body("ds-name", "unknown-action"))
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_errors(client):
+    # unknown action
+    response = client.simulate_post("/execute", body=verify_body("ds-name", "unknown-action"))
     assert response.status == falcon.HTTP_400
 
+    # bad token
+    response = client.simulate_post("/execute", body=verify_body("ds-name", "unknown-action", "bad-token"))
+    assert response.status == falcon.HTTP_400
 
-@patch("protect_with_atakama.resources.BigID", MockBigID)
-def test_execute_smb_verify_connection_basic(client, smb_mock):
-    response = client.simulate_post("/execute", body=verify_smb_connection_body("ds-smb-with-pii"))
+    # bad input
+    response = client.simulate_post("/execute", body="")
+    assert response.status == falcon.HTTP_500
+
+
+@patch("protect_with_atakama.executor.BigID", MockBigID)
+def test_execute_verify_basic(client, smb_mock):
+    # success
+    response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
     assert response.status == falcon.HTTP_200
     assert len(smb_mock.files_written) == 1
     assert smb_mock.files_written[0][0] == "share-name"
@@ -309,3 +375,13 @@ def test_execute_smb_verify_connection_basic(client, smb_mock):
     assert len(smb_mock.files_deleted) == 1
     assert smb_mock.files_deleted[0][0] == "share-name"
     assert smb_mock.files_deleted[0][1] == smb_mock.files_written[0][1]
+
+    # write fails
+    with patch.object(smb_mock, "storeFile", side_effect=Exception):
+        response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400
+
+    # connect fails
+    with patch.object(smb_mock, "connect", side_effect=Exception):
+        response = client.simulate_post("/execute", body=verify_body("ds-smb-with-pii"))
+        assert response.status == falcon.HTTP_400
